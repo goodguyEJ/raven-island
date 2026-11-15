@@ -47,13 +47,15 @@ final class NotchController {
     private var lastAttention = 0
     private var sessionCount = 0
     private var cardHeight: CGFloat = 0
+    private var frontRequestID: String?
+    private var queuedCount = 0
     private var hasPending: Bool { cardHeight > 0 }
-    private var footerHeight: CGFloat { (settings.showUsage && model.usage != nil) ? UsageStrip.height : 0 }
     private var collapseWork: DispatchWorkItem?
     private var shrinkWork: DispatchWorkItem?
 
     /// Phase 4 hooks this up to jump to the session's terminal.
     var onSelect: (Session) -> Void = { _ in }
+    var onOpenSettings: () -> Void = {}
 
     private var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
     private var spring: Animation? { reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.82) }
@@ -82,9 +84,9 @@ final class NotchController {
         panel.becomesKeyOnlyIfNeeded = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
 
-        let root = NotchRootView(model: model, state: state, settings: settings, reduceMotion: reduceMotion) { [weak self] s in
+        let root = NotchRootView(model: model, state: state, settings: settings, reduceMotion: reduceMotion, onSelect: { [weak self] s in
             self?.onSelect(s)
-        }
+        }, onOpenSettings: { [weak self] in self?.onOpenSettings() })
         let hosting = FirstMouseHostingView(rootView: root)
         hosting.autoresizingMask = [.width, .height]
         let container = HoverView(frame: .zero)
@@ -107,9 +109,14 @@ final class NotchController {
             .store(in: &subscriptions)
         settings.$displayMode.dropFirst().receive(on: RunLoop.main).sink { [weak self] _ in self?.screensChanged() }
             .store(in: &subscriptions)
-        // The usage strip appearing or disappearing changes the panel's height.
-        model.$usage.map { $0 != nil }.removeDuplicates().combineLatest(settings.$showUsage)
-            .receive(on: RunLoop.main).sink { [weak self] _ in self?.applyFrame() }
+        // "Show all" and "Show less" change the panel's height.
+        state.$showAll.dropFirst().removeDuplicates().receive(on: RunLoop.main)
+            .sink { [weak self] showAll in
+                guard let self else { return }
+                // Growing: make room first. Shrinking: let the shape finish animating, or its bottom is cut off.
+                if showAll { self.applyFrame() }
+                else { DispatchQueue.main.asyncAfter(deadline: .now() + (self.reduceMotion ? 0 : 0.45)) { self.applyFrame() } }
+            }
             .store(in: &subscriptions)
         NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
             .receive(on: RunLoop.main).sink { [weak self] _ in self?.screensChanged() }
@@ -142,7 +149,13 @@ final class NotchController {
 
     /// A waiting request pins the panel open; once the queue empties it tucks away again.
     private func pendingChanged(_ pending: [PendingRequest]) {
+        // Each new decision starts focused on its own session.
+        if pending.first?.id != frontRequestID {
+            frontRequestID = pending.first?.id
+            state.showAll = false
+        }
         cardHeight = pending.first.map(RequestCard.height(for:)) ?? 0
+        queuedCount = max(0, pending.count - 1)
         if hasPending {
             expand()
             applyFrame()
@@ -156,7 +169,7 @@ final class NotchController {
     /// While a collapse animation is running the window keeps the expanded size.
     private func applyFrame() {
         let g = state.geometry
-        let size = (state.expanded || shrinkPending) ? g.expandedSize(sessionCount: sessionCount, cardHeight: cardHeight, footerHeight: footerHeight)
+        let size = (state.expanded || shrinkPending) ? g.expandedSize(sessionCount: sessionCount, cardHeight: cardHeight, focus: hasPending && !state.showAll, queued: queuedCount)
                                                      : g.collapsedSize(sessionCount: sessionCount)
         panel.setFrame(g.frame(for: size), display: true)
     }
@@ -177,7 +190,7 @@ final class NotchController {
         shrinkPending = false
         guard !state.expanded else { return }
         // Grow the window first so the animation has room, then animate the shape inside it.
-        panel.setFrame(state.geometry.frame(for: state.geometry.expandedSize(sessionCount: sessionCount, cardHeight: cardHeight, footerHeight: footerHeight)), display: true)
+        panel.setFrame(state.geometry.frame(for: state.geometry.expandedSize(sessionCount: sessionCount, cardHeight: cardHeight, focus: hasPending && !state.showAll, queued: queuedCount)), display: true)
         withAnimation(spring) { state.expanded = true }
     }
 

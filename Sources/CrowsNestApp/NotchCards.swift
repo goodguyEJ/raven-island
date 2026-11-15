@@ -221,7 +221,11 @@ struct RequestCard: View {
                 Text(TextSafety.visible(request.title)).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
                 Spacer(minLength: 4)
                 if more > 0 {
-                    Text("+\(more) waiting").font(.system(size: 10.5, weight: .medium)).foregroundStyle(.white.opacity(0.55))
+                    Text("Decision 1 of \(more + 1)")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .padding(.horizontal, 7).padding(.vertical, 2)
+                        .background(Capsule().fill(SessionState.needsApproval.color.opacity(0.22)))
+                        .foregroundStyle(SessionState.needsApproval.color)
                 }
             }
             Text(TextSafety.visible(request.projectName))

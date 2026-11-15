@@ -37,7 +37,7 @@ public struct PendingRequest: Identifiable, Equatable, Sendable {
     /// Nil when the event is not something the panel answers (the caller then passes it through).
     public init?(envelope: Envelope, id: String = UUID().uuidString, now: Date = Date()) {
         let p = envelope.payload
-        guard let session = envelope.sessionID, let tool = p["tool_name"]?.string else { return nil }
+        guard let session = envelope.sessionID, !session.isEmpty, let tool = p["tool_name"]?.string else { return nil }
         switch (envelope.event, tool) {
         case ("PreToolUse", "AskUserQuestion"): kind = .question
         case ("PermissionRequest", "AskUserQuestion"): return nil   // already offered at PreToolUse
@@ -131,7 +131,8 @@ public struct PendingRequest: Identifiable, Equatable, Sendable {
         case "PostToolUse", "PostToolUseFailure":
             return envelope.payload["tool_name"]?.string == tool && envelope.payload["tool_input"] == input
         case "PermissionDenied":
-            return envelope.payload["tool_name"]?.string == tool
+            // Same input too: another subagent in this session being denied the same tool says nothing about this request.
+            return envelope.payload["tool_name"]?.string == tool && envelope.payload["tool_input"] == input
         default:
             return false
         }

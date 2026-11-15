@@ -111,6 +111,10 @@ import Testing
         // A different call finishing (parallel tools) does not.
         #expect(!r.isResolved(by: event("PostToolUse", ["tool_name": "Bash", "tool_input": .object(["command": "ls"])])))
         #expect(!r.isResolved(by: event("PreToolUse", ["tool_name": "Read"])))
+        // A denial elsewhere in the session (another subagent, other input) doesn't settle this one.
+        #expect(!r.isResolved(by: event("PermissionDenied", ["tool_name": "Bash", "tool_input": .object(["command": "rm x"])])))
+        #expect(r.isResolved(by: event("PermissionDenied", ["tool_name": "Bash", "tool_input": Self.bash["tool_input"]!])))
+        #expect(PendingRequest(envelope: event("PermissionRequest", session: "", Self.bash)) == nil)
         #expect(r.isResolved(by: event("Stop")))
         #expect(r.isResolved(by: event("UserPromptSubmit")))
         #expect(!r.isResolved(by: event("Stop", session: "other")))

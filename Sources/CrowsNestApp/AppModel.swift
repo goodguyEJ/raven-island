@@ -43,8 +43,9 @@ final class AppModel: ObservableObject {
         finishedCount = store.finishedCount
     }
 
-    /// The row's check button.
+    /// The row's check button. A session with a decision waiting stays listed until it's answered.
     func dismiss(_ id: String) {
+        guard !pending.contains(where: { $0.sessionID == id }) else { return }
         store.dismiss(id)
         publishSessions()
     }
@@ -82,12 +83,17 @@ final class AppModel: ObservableObject {
         reapTimer?.tolerance = 5
         // Heartbeat for waiting requests. Sent from the main thread, so a hung app stops sending and
         // every waiting helper falls back to Claude Code's own prompt within a few seconds.
-        heartbeatTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+        let heartbeat = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 for request in self.pending { self.connections[request.id]?.acknowledge() }
             }
         }
+        // Common modes, not just the default one: a default-mode timer pauses while the user scrolls a
+        // card or holds the mouse down, the helper hears nothing for 3 s, and the decision is handed
+        // back to the terminal mid-read.
+        RunLoop.main.add(heartbeat, forMode: .common)
+        heartbeatTimer = heartbeat
         prepareHelper()
     }
 
@@ -191,6 +197,9 @@ final class AppModel: ObservableObject {
         }
         connections[request.id] = connection
         pending.append(request)
+        // A decision must never sit behind a session the user cleared earlier.
+        store.restore(request.sessionID)
+        publishSessions()
         noteFrontChange()
         // Sent from the main thread, so its arrival proves the app is responsive and the card is up.
         connection.acknowledge()

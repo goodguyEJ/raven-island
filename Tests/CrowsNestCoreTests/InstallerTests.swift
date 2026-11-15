@@ -58,10 +58,12 @@ import Testing
         let remembered = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: previous)) as? [String: Any])
         #expect(remembered["command"] as? String == "/usr/local/bin/other-statusline")
 
-        // Our permission hook carries the long timeout.
-        let ours = try #require((hooks["PermissionRequest"] as? [[String: Any]])?.last?["hooks"] as? [[String: Any]])
-        #expect(ours.first?["timeout"] as? Int == 86_400)
-        #expect((ours.first?["command"] as? String)?.contains(Installer.marker) == true)
+        // Blocking hooks (permission requests, and questions via PreToolUse) carry the long timeout.
+        for event in ["PermissionRequest", "PreToolUse"] {
+            let ours = try #require((hooks[event] as? [[String: Any]])?.last?["hooks"] as? [[String: Any]])
+            #expect(ours.first?["timeout"] as? Int == 86_400, "\(event)")
+            #expect((ours.first?["command"] as? String)?.contains(Installer.marker) == true)
+        }
     }
 
     @Test func installIsIdempotent() throws {
@@ -135,6 +137,14 @@ import Testing
         #expect(throws: Installer.InstallError.self) { try installer.install() }
         #expect(try String(contentsOf: settings, encoding: .utf8) == broken)
         #expect(try backups().isEmpty)
+    }
+
+    @Test func olderEntryWithoutTimeoutIsReplaced() throws {
+        try write(#"{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"\"$HOME/.crowsnest/bin/crowsnest-bridge\" hook claude 2>/dev/null || true"}]}]}}"#)
+        try installer().install(statusLine: false)
+        let groups = try #require((try read()["hooks"] as? [String: Any])?["PreToolUse"] as? [[String: Any]])
+        #expect(groups.count == 1)
+        #expect(((groups[0]["hooks"] as? [[String: Any]])?.first?["timeout"] as? Int) == 86_400)
     }
 
     @Test func staleOwnEntriesAreReplacedNotDuplicated() throws {

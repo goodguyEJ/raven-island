@@ -114,6 +114,24 @@ try:
     bridge("resolve", "allow"); bridge("resolve", "terminal")
     check("each answer goes to its own request", '"allow"' in a.communicate(timeout=5)[0] and q.communicate(timeout=5)[0] == "")
 
+    print("decisions that overlap")
+    first = hook_bg(perm("queue-a", "echo first"))
+    wait_for(lambda: len(pending()) == 1)
+    time.sleep(2)
+    second = hook_bg(perm("queue-b", "echo second"))
+    wait_for(lambda: len(pending()) == 2)
+    time.sleep(5)   # well past the helper's 3 s silence limit: only heartbeats keep both alive
+    check("both decisions are still waiting after 7 seconds", first.poll() is None and second.poll() is None
+          and [x["session"] for x in pending()] == ["queue-a", "queue-b"])
+    bridge("resolve", "allow")
+    out = first.communicate(timeout=5)[0]
+    check("answering the first leaves the second at the front", '"allow"' in out
+          and [x["session"] for x in pending()] == ["queue-b"])
+    bridge("resolve", "deny")
+    check("then the second is answered", '"deny"' in second.communicate(timeout=5)[0] and pending() == [])
+    for sid in ("queue-a", "queue-b"):
+        hook({"session_id": sid, "hook_event_name": "SessionEnd"})
+
     print("what the command line reveals")
     hook({"session_id": "sP", "hook_event_name": "UserPromptSubmit", "cwd": "/Users/someone/secret-project", "prompt": "the secret prompt"})
     listing = bridge("sessions").stdout + bridge("pending").stdout

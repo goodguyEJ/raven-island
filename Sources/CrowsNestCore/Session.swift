@@ -232,6 +232,10 @@ public struct SessionStore: Sendable {
         sessions[id]?.dismissed = true
     }
 
+    public mutating func restore(_ id: String) {
+        sessions[id]?.dismissed = false
+    }
+
     /// Clears every finished session. Returns how many were cleared.
     @discardableResult
     public mutating func dismissFinished() -> Int {

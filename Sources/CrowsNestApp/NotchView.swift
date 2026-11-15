@@ -65,7 +65,8 @@ struct SessionRow: View {
     var animated: Bool
     var characters = true
     var onSelect: (Session) -> Void
-    var onDismiss: (Session) -> Void = { _ in }
+    /// Nil hides the clear button: a session with a decision waiting can't be cleared from under it.
+    var onDismiss: ((Session) -> Void)? = nil
     @State private var hovered = false
     @State private var checkHovered = false
 
@@ -111,17 +112,19 @@ struct SessionRow: View {
                     .foregroundStyle(.white.opacity(0.45))
             }
             // "Done with this one": clears the row until the session does something new.
-            Button { onDismiss(session) } label: {
-                Image(systemName: checkHovered ? "checkmark.circle.fill" : "checkmark.circle")
-                    .font(.system(size: 17))
-                    .foregroundStyle(checkHovered ? Color.green : .white.opacity(session.state == .done ? 0.6 : 0.3))
-                    .frame(width: 26, height: 30)
-                    .contentShape(Rectangle())
+            if let onDismiss {
+                Button { onDismiss(session) } label: {
+                    Image(systemName: checkHovered ? "checkmark.circle.fill" : "checkmark.circle")
+                        .font(.system(size: 17))
+                        .foregroundStyle(checkHovered ? Color.green : .white.opacity(session.state == .done ? 0.6 : 0.3))
+                        .frame(width: 26, height: 30)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .onHover { checkHovered = $0 }
+                .help("Clear from the list. It comes back if the session does something new.")
+                .accessibilityLabel("Clear \(session.projectName) from the list")
             }
-            .buttonStyle(.plain)
-            .onHover { checkHovered = $0 }
-            .help("Clear from the list. It comes back if the session does something new.")
-            .accessibilityLabel("Clear \(session.projectName) from the list")
         }
         .padding(.horizontal, 12)
         .frame(height: NotchGeometry.rowHeight - 4)
@@ -139,6 +142,126 @@ struct SessionRow: View {
     }
 }
 
+/// The panel's outline. Hanging from the notch, its top corners curve outward into the top edge of
+/// the screen, so the panel reads as part of the notch; floating, it is an ordinary rounded shape.
+struct NotchPanelShape: Shape {
+    var ear: CGFloat
+    var bottom: CGFloat
+    var top: CGFloat
+
+    var animatableData: AnimatablePair<CGFloat, AnimatablePair<CGFloat, CGFloat>> {
+        get { AnimatablePair(ear, AnimatablePair(bottom, top)) }
+        set { ear = newValue.first; bottom = newValue.second.first; top = newValue.second.second }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        guard ear > 0 else {
+            return UnevenRoundedRectangle(topLeadingRadius: top, bottomLeadingRadius: bottom,
+                                          bottomTrailingRadius: bottom, topTrailingRadius: top, style: .continuous)
+                .path(in: rect)
+        }
+        let w = rect.width, h = rect.height
+        let b = min(bottom, (w - 2 * ear) / 2, h - ear)
+        var p = Path()
+        p.move(to: CGPoint(x: 0, y: 0))
+        p.addQuadCurve(to: CGPoint(x: ear, y: ear), control: CGPoint(x: ear, y: 0))
+        p.addLine(to: CGPoint(x: ear, y: h - b))
+        p.addQuadCurve(to: CGPoint(x: ear + b, y: h), control: CGPoint(x: ear, y: h))
+        p.addLine(to: CGPoint(x: w - ear - b, y: h))
+        p.addQuadCurve(to: CGPoint(x: w - ear, y: h - b), control: CGPoint(x: w - ear, y: h))
+        p.addLine(to: CGPoint(x: w - ear, y: ear))
+        p.addQuadCurve(to: CGPoint(x: w, y: 0), control: CGPoint(x: w - ear, y: 0))
+        p.closeSubpath()
+        return p.offsetBy(dx: rect.minX, dy: rect.minY)
+    }
+}
+
+struct HeaderUsage: View {
+    var usage: UsageSnapshot
+    var now: Date
+
+    private func color(_ percent: Double) -> Color {
+        switch UsageSnapshot.level(percent) {
+        case .normal: return Color(red: 0.36, green: 0.80, blue: 0.48)
+        case .warning: return .orange
+        case .critical: return Color(red: 1.0, green: 0.35, blue: 0.32)
+        }
+    }
+
+    private func window(_ label: String, _ w: UsageWindow) -> some View {
+        HStack(spacing: 3) {
+            Text(label).foregroundStyle(.white.opacity(0.55))
+            Text("\(Int(w.usedPercent.rounded()))%").foregroundStyle(color(w.usedPercent))
+            if let reset = w.resetsAt {
+                Text(UsageSnapshot.countdown(to: reset, now: now).replacingOccurrences(of: " ", with: ""))
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label == "5h" ? "Five hour" : "Weekly") limit \(Int(w.usedPercent.rounded())) percent used")
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if let five = usage.fiveHour { window("5h", five) }
+            if usage.fiveHour != nil, usage.sevenDay != nil {
+                Rectangle().fill(.white.opacity(0.25)).frame(width: 1, height: 10)
+            }
+            if let week = usage.sevenDay { window("7d", week) }
+        }
+        .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
+        .lineLimit(1)
+        .minimumScaleFactor(0.75)
+    }
+}
+
+/// Decisions waiting behind the one on screen. They come up on their own, in order, as each is answered.
+struct UpNextStrip: View {
+    var queued: [PendingRequest]
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "arrow.turn.down.right").font(.system(size: 10, weight: .bold))
+                .foregroundStyle(SessionState.needsApproval.color)
+            Text("Up next").font(.system(size: 11, weight: .semibold)).foregroundStyle(SessionState.needsApproval.color)
+            if let next = queued.first {
+                Text("\(TextSafety.visible(next.projectName)) · \(TextSafety.visible(next.title))")
+                    .font(.system(size: 11)).foregroundStyle(.white.opacity(0.7))
+                    .lineLimit(1).truncationMode(.tail)
+            }
+            if queued.count > 1 {
+                Text("+\(queued.count - 1) more").font(.system(size: 11)).foregroundStyle(.white.opacity(0.45)).fixedSize()
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 18)
+        .frame(height: NotchGeometry.pagerHeight)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct HeaderIconButton: View {
+    var symbol: String
+    var label: String
+    var action: () -> Void
+    @State private var hovered = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .semibold))
+                .frame(width: 24, height: 22)
+                .foregroundStyle(.white.opacity(hovered ? 1 : 0.75))
+                .background(Circle().fill(.white.opacity(hovered ? 0.16 : 0)))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovered = $0 }
+        .help(label)
+        .accessibilityLabel(label)
+    }
+}
+
 /// The panel itself: a black shape that is either notch-sized (collapsed) or a session list (expanded).
 struct NotchContentView: View {
     var sessions: [Session]
@@ -147,17 +270,27 @@ struct NotchContentView: View {
     var animated = true
     /// The request currently shown as a card, and how many more are queued behind it.
     var request: PendingRequest? = nil
-    var moreRequests = 0
+    /// Decisions waiting behind `request`, in the order they'll be shown.
+    var queued: [PendingRequest] = []
+    /// Sessions with a decision waiting; their rows can't be cleared.
+    var waitingSessionIDs: Set<String> = []
     var usage: UsageSnapshot? = nil
     var characters = true
+    var showAll = false
+    var soundsOn = false
     var onSelect: (Session) -> Void = { _ in }
     var onDismiss: (Session) -> Void = { _ in }
     var onClearFinished: () -> Void = {}
     var onDecision: (PendingRequest, Decision) -> Void = { _, _ in }
     var onReviewed: (PendingRequest) -> Void = { _ in }
     var onEditing: (PendingRequest, Bool) -> Void = { _, _ in }
+    var onShowAll: (Bool) -> Void = { _ in }
+    var onToggleSound: () -> Void = {}
+    var onOpenSettings: () -> Void = {}
 
-    private var footerHeight: CGFloat { usage == nil ? 0 : UsageStrip.height }
+    private var focus: Bool { request != nil && !showAll }
+    private var focusSession: Session? { request.flatMap { r in sessions.first { $0.id == r.sessionID } } }
+    private var ear: CGFloat { geometry.earRadius(expanded: expanded, sessionCount: sessions.count) }
     private var cardHeight: CGFloat { request.map(RequestCard.height(for:)) ?? 0 }
     private var visibleRows: Int { NotchGeometry.visibleRows(sessionCount: sessions.count, hasCard: request != nil) }
     @State private var page = 0
@@ -172,15 +305,13 @@ struct NotchContentView: View {
     }
 
     private var size: CGSize {
-        expanded ? geometry.expandedSize(sessionCount: sessions.count, cardHeight: cardHeight, footerHeight: footerHeight)
+        expanded ? geometry.expandedSize(sessionCount: sessions.count, cardHeight: cardHeight, focus: focus, queued: queued.count)
                  : geometry.collapsedSize(sessionCount: sessions.count)
     }
 
-    private var shape: UnevenRoundedRectangle {
+    private var shape: NotchPanelShape {
         let bottom: CGFloat = expanded ? 22 : (geometry.hasNotch ? 10 : NotchGeometry.pillHeight / 2)
-        let top: CGFloat = geometry.hasNotch ? 0 : bottom
-        return UnevenRoundedRectangle(topLeadingRadius: top, bottomLeadingRadius: bottom,
-                                      bottomTrailingRadius: bottom, topTrailingRadius: top, style: .continuous)
+        return NotchPanelShape(ear: ear, bottom: bottom, top: geometry.hasNotch ? 0 : bottom)
     }
 
     private var attention: Int { sessions.filter { $0.state.needsAttention }.count }
@@ -190,13 +321,17 @@ struct NotchContentView: View {
     var body: some View {
         ZStack(alignment: .top) {
             shape.fill(.black)
-            if expanded { expandedBody.transition(.opacity) } else { collapsedBody.transition(.opacity) }
+            Group {
+                if expanded { expandedBody.transition(.opacity) } else { collapsedBody.transition(.opacity) }
+            }
+            .padding(.horizontal, ear)
         }
         .frame(width: size.width, height: size.height)
         .clipShape(shape)
         .contentShape(shape)
         .animation(animated ? .spring(response: 0.36, dampingFraction: 0.82) : nil, value: sessions.count)
         .animation(animated ? .spring(response: 0.36, dampingFraction: 0.82) : nil, value: request?.id)
+        .animation(animated ? .spring(response: 0.36, dampingFraction: 0.82) : nil, value: showAll)
     }
 
     @ViewBuilder private var collapsedBody: some View {
@@ -292,14 +427,23 @@ struct NotchContentView: View {
             .accessibilityLabel(attention > 0 ? "\(attention) sessions need you" : "\(sessions.count) sessions")
     }
 
-    private var expandedBody: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text(sessions.isEmpty ? "Crow's Nest" : "\(sessions.count) session\(sessions.count == 1 ? "" : "s")")
-                    .foregroundStyle(.white.opacity(0.7))
+    private var header: some View {
+        HStack(spacing: 0) {
+            HStack(spacing: 8) {
+                if let usage {
+                    TimelineView(.periodic(from: .now, by: 30)) { timeline in HeaderUsage(usage: usage, now: timeline.date) }
+                } else {
+                    Text(sessions.isEmpty ? "Crow's Nest" : "\(sessions.count) session\(sessions.count == 1 ? "" : "s")")
+                        .font(.system(size: 11.5, weight: .medium)).foregroundStyle(.white.opacity(0.7))
+                }
+            }
+            .frame(width: geometry.headerSideWidth, alignment: .leading)
+            Spacer(minLength: 0)
+            HStack(spacing: 4) {
                 if finished > 0 {
                     Button(action: onClearFinished) {
                         Text("Clear \(finished) done")
+                            .font(.system(size: 11, weight: .medium))
                             .padding(.horizontal, 7).padding(.vertical, 2)
                             .background(Capsule().fill(.white.opacity(0.14)))
                             .foregroundStyle(.white.opacity(0.85))
@@ -308,44 +452,77 @@ struct NotchContentView: View {
                     .buttonStyle(.plain)
                     .fixedSize()
                 }
-                Spacer()
-                if attention > 0 {
-                    Text("\(attention) need\(attention == 1 ? "s" : "") you").foregroundStyle(SessionState.needsApproval.color)
+                HeaderIconButton(symbol: soundsOn ? "speaker.wave.2.fill" : "speaker.slash.fill",
+                                 label: soundsOn ? "Mute sounds" : "Turn sounds on", action: onToggleSound)
+                HeaderIconButton(symbol: "gearshape.fill", label: "Settings", action: onOpenSettings)
+            }
+            .frame(width: geometry.headerSideWidth, alignment: .trailing)
+        }
+        .padding(.horizontal, 18)
+        .frame(height: geometry.headerHeight)
+    }
+
+    private func rows(_ list: [Session]) -> some View {
+        TimelineView(.periodic(from: .now, by: 1)) { timeline in
+            VStack(spacing: 4) {
+                ForEach(list) { s in
+                    SessionRow(session: s, now: timeline.date, animated: animated, characters: characters,
+                               onSelect: onSelect, onDismiss: waitingSessionIDs.contains(s.id) ? nil : onDismiss)
                 }
             }
-            .font(.system(size: 11.5, weight: .medium))
-            .padding(.horizontal, 18)
-            .frame(height: geometry.headerHeight)
+            .padding(.horizontal, 8)
+            .frame(maxHeight: .infinity, alignment: .top)
+        }
+    }
 
-            if let request {
-                RequestCard(request: request, more: moreRequests, live: animated,
+    private func footerLink(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title).font(.system(size: 11.5, weight: .medium)).foregroundStyle(.white.opacity(0.6))
+                .frame(maxWidth: .infinity).frame(height: NotchGeometry.pagerHeight).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var expandedBody: some View {
+        VStack(spacing: 0) {
+            header
+
+            if focus, let request {
+                rows(focusSession.map { [$0] } ?? []).frame(height: NotchGeometry.rowHeight)
+                RequestCard(request: request, more: queued.count, live: animated,
                             onDecision: { onDecision(request, $0) }, onReviewed: { onReviewed(request) },
                             onEditing: { onEditing(request, $0) })
                     .id(request.id)   // fresh text fields and selections for each request
-            }
-
-            if sessions.isEmpty, geometry.crewStage {
-                CrewStage(width: size.width - 36, animated: animated)
-            } else if sessions.isEmpty {
-                Text("No active sessions")
-                    .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.5))
-                    .frame(maxWidth: .infinity).frame(height: NotchGeometry.rowHeight)
-            } else {
-                TimelineView(.periodic(from: .now, by: 1)) { timeline in
-                    VStack(spacing: 4) {
-                        ForEach(pageSessions) { s in
-                            SessionRow(session: s, now: timeline.date, animated: animated, characters: characters, onSelect: onSelect, onDismiss: onDismiss)
-                        }
-                    }
-                    .padding(.horizontal, 8)
-                    .frame(maxHeight: .infinity, alignment: .top)
+                    .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
+                if !queued.isEmpty { UpNextStrip(queued: queued) }
+                if sessions.count > 1 {
+                    footerLink("Show all \(sessions.count) sessions") { onShowAll(true) }
                 }
-                .frame(height: CGFloat(visibleRows) * NotchGeometry.rowHeight)
-                if sessions.count > visibleRows { pager }
-            }
-            if let usage {
-                TimelineView(.periodic(from: .now, by: 30)) { timeline in
-                    UsageStrip(usage: usage, now: timeline.date)
+            } else {
+                if let request {
+                    RequestCard(request: request, more: queued.count, live: animated,
+                                onDecision: { onDecision(request, $0) }, onReviewed: { onReviewed(request) },
+                                onEditing: { onEditing(request, $0) })
+                        .id(request.id)
+                        .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
+                    if !queued.isEmpty { UpNextStrip(queued: queued) }
+                }
+                if sessions.isEmpty, geometry.crewStage {
+                    CrewStage(width: size.width - 2 * ear - 36, animated: animated)
+                } else if sessions.isEmpty {
+                    Text("No active sessions")
+                        .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.5))
+                        .frame(maxWidth: .infinity).frame(height: NotchGeometry.rowHeight)
+                } else {
+                    rows(pageSessions).frame(height: CGFloat(visibleRows) * NotchGeometry.rowHeight)
+                    if sessions.count > visibleRows {
+                        HStack(spacing: 0) {
+                            pager
+                            if request != nil { footerLink("Show less") { onShowAll(false) }.fixedSize().padding(.trailing, 18) }
+                        }
+                    } else if request != nil, sessions.count > 1 {
+                        footerLink("Show less") { onShowAll(false) }
+                    }
                 }
             }
             Spacer(minLength: 0)
@@ -355,6 +532,8 @@ struct NotchContentView: View {
 
 final class NotchState: ObservableObject {
     @Published var expanded = false
+    /// While a decision is waiting, the panel shows only that session unless this is on.
+    @Published var showAll = false
     @Published var geometry: NotchGeometry
     init(geometry: NotchGeometry) { self.geometry = geometry }
 }
@@ -366,12 +545,15 @@ struct NotchRootView: View {
     @ObservedObject var settings: Settings
     var reduceMotion: Bool
     var onSelect: (Session) -> Void
+    var onOpenSettings: () -> Void = {}
 
     var body: some View {
         NotchContentView(sessions: model.sessions, expanded: state.expanded, geometry: state.geometry,
                          animated: !reduceMotion, request: model.pending.first,
-                         moreRequests: max(0, model.pending.count - 1),
+                         queued: Array(model.pending.dropFirst()),
+                         waitingSessionIDs: Set(model.pending.map(\.sessionID)),
                          usage: settings.showUsage ? model.usage : nil, characters: settings.showCharacters,
+                         showAll: state.showAll, soundsOn: settings.soundsEnabled,
                          onSelect: onSelect,
                          onDismiss: { model.dismiss($0.id) }, onClearFinished: { model.dismissFinished() },
                          onDecision: { request, decision in
@@ -380,7 +562,10 @@ struct NotchRootView: View {
                              if decision == .terminal, let s = model.session(id: request.sessionID) { _ = model.jump(s) }
                          },
                          onReviewed: { model.markReviewed($0.id) },
-                         onEditing: { model.setEditing($0.id, $1) })
+                         onEditing: { model.setEditing($0.id, $1) },
+                         onShowAll: { state.showAll = $0 },
+                         onToggleSound: { settings.soundsEnabled.toggle() },
+                         onOpenSettings: onOpenSettings)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }

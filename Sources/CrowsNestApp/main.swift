@@ -39,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.start()
         setUpStatusItem()
         notch = NotchController(model: model, settings: settings)
+        notch?.onOpenSettings = { [weak self] in self?.showSettings() }
         model.jump = { session in Jumper.jump(to: session) }
         model.diagnostics = { [weak self] in
             guard let self else { return "" }

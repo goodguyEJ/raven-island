@@ -14,7 +14,7 @@ public struct Installer {
 
     /// Events we listen to, with an explicit timeout (seconds) where the default is too short.
     public static let events: [(name: String, timeout: Int?)] = [
-        ("SessionStart", nil), ("UserPromptSubmit", nil), ("PreToolUse", nil), ("PostToolUse", nil),
+        ("SessionStart", nil), ("UserPromptSubmit", nil), ("PreToolUse", 86_400), ("PostToolUse", nil),
         ("PostToolUseFailure", nil), ("PermissionRequest", 86_400), ("Notification", nil),
         ("SubagentStart", nil), ("SubagentStop", nil), ("PreCompact", nil), ("PostCompact", nil),
         ("Stop", nil), ("StopFailure", nil), ("SessionEnd", nil),

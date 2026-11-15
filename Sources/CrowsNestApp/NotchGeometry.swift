@@ -14,7 +14,7 @@ struct NotchGeometry: Equatable {
     var crewStage = false
 
     static let wing: CGFloat = 38
-    static let expandedWidth: CGFloat = 520
+    static let expandedWidth: CGFloat = 600
     static let rowHeight: CGFloat = 54
     /// Rows per page of the session list; more sessions go on further pages.
     static let maxRows = 5
@@ -41,9 +41,20 @@ struct NotchGeometry: Equatable {
 
     var headerHeight: CGFloat { hasNotch ? notchHeight : 30 }
 
+    /// Radius of the outward curves where the panel meets the top of the screen. Only when the
+    /// panel hangs from the notch; the floating pill on other displays has ordinary corners.
+    /// None around a bare notch, where nothing shows beside it.
+    func earRadius(expanded: Bool, sessionCount: Int) -> CGFloat {
+        guard hasNotch, expanded || sessionCount > 0 || idleStroll else { return 0 }
+        return expanded ? 14 : 7
+    }
+
+    var headerSideWidth: CGFloat { (Self.expandedWidth - notchWidth) / 2 - 22 }
+
     func collapsedSize(sessionCount: Int) -> CGSize {
         if hasNotch {
-            return CGSize(width: notchWidth + (sessionCount > 0 || idleStroll ? 2 * Self.wing : 0), height: notchHeight)
+            let body = notchWidth + (sessionCount > 0 || idleStroll ? 2 * Self.wing : 0)
+            return CGSize(width: body + 2 * earRadius(expanded: false, sessionCount: sessionCount), height: notchHeight)
         }
         return CGSize(width: sessionCount > 0 ? 178 : (idleStroll ? 96 : 44), height: Self.pillHeight)
     }
@@ -53,12 +64,23 @@ struct NotchGeometry: Equatable {
         max(1, min(sessionCount, hasCard ? 3 : maxRows))
     }
 
-    func expandedSize(sessionCount: Int, cardHeight: CGFloat = 0, footerHeight: CGFloat = 0) -> CGSize {
-        let rows = Self.visibleRows(sessionCount: sessionCount, hasCard: cardHeight > 0)
-        let width = max(Self.expandedWidth, notchWidth + 2 * Self.wing + 80)
-        let pager = sessionCount > rows ? Self.pagerHeight : 0
-        let list = sessionCount == 0 && crewStage ? CrewStage.height : CGFloat(rows) * Self.rowHeight + pager
-        return CGSize(width: width, height: headerHeight + cardHeight + list + footerHeight + 10)
+    /// `focus`: a decision is waiting and only its session is shown, with a "Show all" line under it.
+    /// `queued`: decisions waiting behind the one on screen; they get an "Up next" line.
+    func expandedSize(sessionCount: Int, cardHeight: CGFloat = 0, focus: Bool = false, queued: Int = 0) -> CGSize {
+        let width = max(Self.expandedWidth, notchWidth + 2 * Self.wing + 80) + 2 * earRadius(expanded: true, sessionCount: sessionCount)
+        let list: CGFloat
+        if focus {
+            list = Self.rowHeight + (sessionCount > 1 ? Self.pagerHeight : 0)
+        } else if sessionCount == 0 {
+            list = crewStage ? CrewStage.height : Self.rowHeight
+        } else {
+            let rows = Self.visibleRows(sessionCount: sessionCount, hasCard: cardHeight > 0)
+            // With a card up there is always a footer line, for "Show less".
+            let footer = sessionCount > rows || (cardHeight > 0 && sessionCount > 1)
+            list = CGFloat(rows) * Self.rowHeight + (footer ? Self.pagerHeight : 0)
+        }
+        let upNext = cardHeight > 0 && queued > 0 ? Self.pagerHeight : 0
+        return CGSize(width: width, height: headerHeight + cardHeight + upNext + list + 10)
     }
 
     func frame(for size: CGSize) -> CGRect {

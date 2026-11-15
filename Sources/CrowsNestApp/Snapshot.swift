@@ -86,7 +86,7 @@ enum Snapshot {
             ("4b-collapsed-empty", [], false, notch, nil, 0),
             ("5-pill-collapsed", all, false, plain, nil, 0),
             ("6-pill-expanded", working, true, plain, nil, 0),
-            ("7-approval-command", all, true, notch, bash, 1),
+            ("7-approval-command", all, true, notch, bash, 2),
             ("8-approval-edit", working, true, notch, edit, 0),
             ("9-question", working, true, notch, question, 0),
             ("10-plan", working, true, notch, plan, 0),
@@ -97,10 +97,12 @@ enum Snapshot {
                                startPoint: .top, endPoint: .bottom)
                 Rectangle().fill(.white.opacity(0.28)).frame(height: 37)   // stand-in menu bar
                 NotchContentView(sessions: sessions, expanded: expanded, geometry: g, animated: false,
-                                 request: req, moreRequests: more, usage: expanded ? usage : nil)
+                                 request: req, queued: more > 0 ? [edit, question].compactMap { $0 }.prefix(more).map { $0 } : [],
+                                 waitingSessionIDs: req.map { [$0.sessionID] } ?? [],
+                                 usage: expanded ? usage : nil)
                     .padding(.top, g.topOffset + (g.hasNotch ? 0 : 7))
             }
-            .frame(width: 680, height: expanded ? g.expandedSize(sessionCount: sessions.count, cardHeight: req.map(RequestCard.height(for:)) ?? 0, footerHeight: UsageStrip.height).height + g.topOffset + 70 : 90)
+            .frame(width: 680, height: expanded ? g.expandedSize(sessionCount: sessions.count, cardHeight: req.map(RequestCard.height(for:)) ?? 0, focus: req != nil, queued: req == nil ? 0 : more).height + g.topOffset + 70 : 90)
             let renderer = ImageRenderer(content: view)
             renderer.scale = 2
             guard let image = renderer.nsImage, let tiff = image.tiffRepresentation,

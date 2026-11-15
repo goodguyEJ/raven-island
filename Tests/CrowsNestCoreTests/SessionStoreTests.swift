@@ -167,4 +167,15 @@ func event(_ name: String, session: String = "s1", _ extra: [String: JSONValue] 
         store.apply(event("UserPromptSubmit", session: "headless", ["prompt": "now"]), now: t0 + 400)
         #expect(Set(store.sorted.map(\.id)) == ["busy", "headless"])   // comes back once it does something
     }
+
+    @Test func restoredSessionIsListedAgain() {
+        var store = SessionStore()
+        store.apply(event("PermissionRequest", session: "a", ["tool_name": "Bash"]))
+        store.dismiss("a")
+        store.apply(event("PermissionRequest", session: "a", ["tool_name": "Bash"]))   // same state: stays cleared
+        #expect(store.sorted.isEmpty)
+        store.restore("a")
+        #expect(store.sorted.map(\.id) == ["a"])
+        #expect(store.attentionCount == 1)
+    }
 }

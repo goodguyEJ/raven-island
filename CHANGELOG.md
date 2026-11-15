@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### Panel
+- The open panel's top corners curve outward into the top edge of the screen, so it hangs from
+  the notch.
+- Header: usage limits at the top left; sound on/off and Settings buttons at the top right.
+- When a decision is waiting, the panel shows only that session and its card, with
+  "Show all N sessions" to see the rest and "Show less" to go back.
+- Decisions queue in the order they arrive: the card shows "Decision 1 of N", an "Up next" line
+  names the next one, and it slides in by itself once the current one is answered.
+
+### Fixes
+- A waiting decision could be handed back to the terminal while you scrolled its card (the
+  heartbeat paused during scrolling). It now keeps running.
+- A denial elsewhere in the same session no longer withdraws an unrelated waiting decision.
+- Questions waiting in the queue are no longer cut off by Claude Code's default hook timeout.
+- A session with a decision waiting can't be cleared from the list.
+
 ## 0.1.0 — 2026-11-15
 
 First public release.

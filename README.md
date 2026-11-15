@@ -23,7 +23,9 @@ Finished and unused sessions clear themselves after a few minutes.
 
 **Approve from the notch.** Permission requests appear as cards. Allow, Deny, Deny with a
 note to the agent, Always allow (explicit rules only), or hand it back to the terminal. Use
-the buttons or ⌃⌥Y / ⌃⌥N. Questions from the agent and plans to review get cards too
+the buttons or ⌃⌥Y / ⌃⌥N. While a decision is waiting the panel shows just that session, and
+any later decisions queue behind it ("Decision 1 of 3", with the next one named underneath),
+coming up by themselves as you answer. Questions from the agent and plans to review get cards too
 (preview: these two haven't been confirmed with every Claude Code version yet). Prefer to keep
 approvals in the terminal? Choose **Watch only** during setup.
 
@@ -49,8 +51,9 @@ its party trick.
 in Ghostty and Terminal.app, the workspace window in VS Code and its forks, the pane in tmux
 (Terminal.app and tmux are preview: written but not yet tested by hand).
 
-**Usage limits.** The 5-hour and weekly subscription windows, with reset countdowns, read
-from Claude Code's status line. Your existing status line keeps working.
+**Usage limits.** The 5-hour and weekly subscription windows, with reset countdowns, at the top
+left of the open panel, read from Claude Code's status line. Your existing status line keeps
+working. Sound and Settings buttons sit at the top right.
 
 **And the rest.** Optional sounds for each event (original synthesized tones, or your own pack),
 quiet hours, auto-clearing of finished sessions, launch at login, a floating pill on
