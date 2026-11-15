@@ -215,7 +215,7 @@ struct AgendaTimelineView: View {
     @ViewBuilder private func content(now: Date) -> some View {
         GeometryReader { proxy in
             let timeline = AgendaTimeline(events: events, now: now, calendar: .current,
-                                          minimumHeight: 12 / max(proxy.size.height, 12))
+                                          minimumHeight: 12 / Double(max(proxy.size.height, 12)))
             grid(timeline, size: proxy.size)
         }
         let timeline = AgendaTimeline(events: events, now: now, calendar: .current, minimumHeight: 0)
