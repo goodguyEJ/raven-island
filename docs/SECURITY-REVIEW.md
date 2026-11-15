@@ -1,6 +1,6 @@
 # Security Review
 
-Crow's Nest sits in the approval path of an AI coding agent that can run shell commands and
+Raven Island sits in the approval path of an AI coding agent that can run shell commands and
 edit files. A bug here is not cosmetic: it can mean something runs that you did not approve.
 This document records the two reviews the project went through before its first public
 release, and what is still open.
@@ -69,7 +69,7 @@ needs a person at the screen to confirm the behaviour.
 | 17 | tmux was looked up on the app's limited PATH, and ran on the main thread | **Fixed, built.** Looked up in the usual locations, run off the main thread with a timeout. |
 | 18 | Taking over the status line dropped its `refreshInterval` | **Fixed** (unit test). |
 | 19 | Forged events from a local process can add fake sessions or cards, or dismiss a real card (never approve one) | **Open.** |
-| 20 | The remembered status-line command is run through a shell on every refresh; one approved write to `~/.crowsnest/previous-statusline.json` gives lasting code execution outside `settings.json` | **Open.** |
+| 20 | The remembered status-line command is run through a shell on every refresh; one approved write to `~/.ravenisland/previous-statusline.json` gives lasting code execution outside `settings.json` | **Open.** |
 | 21 | Uninstalling when the remembered status line is missing clears the status line | **Open.** |
 | 22 | No lock against Claude Code writing `settings.json` at the same moment; the file is rewritten with sorted keys | **Open.** |
 | 23 | A session row can show "Working" while its card is still waiting, with parallel tool calls | **Open.** |
@@ -89,7 +89,7 @@ app, and every fix below has an automated end-to-end check (`scripts/e2e.py`, 28
 
 | # | Finding | Severity | Status |
 |---|---|---|---|
-| R2-1 | The helper trusted whatever process was listening on the socket. A local process that replaced the socket file could approve requests and add a blanket "allow every shell command" rule, with no card shown (reproduced) | High | **Fixed, verified.** The helper checks the process on the other end is the app executable recorded at launch, and sends it nothing otherwise. Every answer is checked against the exact shape Crow's Nest produces: only allow or deny, no rewritten input, and permission rules only if the request itself offered them. |
+| R2-1 | The helper trusted whatever process was listening on the socket. A local process that replaced the socket file could approve requests and add a blanket "allow every shell command" rule, with no card shown (reproduced) | High | **Fixed, verified.** The helper checks the process on the other end is the app executable recorded at launch, and sends it nothing otherwise. Every answer is checked against the exact shape Raven Island produces: only allow or deny, no rewritten input, and permission rules only if the request itself offered them. |
 | R2-2 | After the card appeared, a hung app blocked the session for up to 24 hours (reproduced) | High | **Fixed, verified.** The app sends a heartbeat every second from its main thread while a card is up; the helper falls back to Claude Code's own prompt after 3 seconds of silence. It also stops waiting if Claude Code goes away. |
 | R2-3 | A forged usage report with an absurd reset time crashed the app on every launch (reproduced) | High | **Fixed, verified.** Reset times outside a sane window are ignored, and the countdown cannot trap. |
 | R2-4 | Large tool results added 0.25–1.2 s to every tool call and doubled the app's memory (measured) | High | **Fixed, verified.** Tool output is dropped before anything else and JSON is parsed with Foundation's fast parser: 20,000 search matches now cost 15 ms (was 244 ms), 100,000 cost 51 ms (was 1.2 s), and memory stays flat. |
@@ -102,13 +102,13 @@ app, and every fix below has an automated end-to-end check (`scripts/e2e.py`, 28
 | R2-11 | The chained status-line command could kill the helper with a broken pipe | Low | **Fixed.** |
 | R2-12 | Any accept error other than a few known ones stopped the listener for good | Low | **Fixed.** Only a closed listener stops it. |
 | R2-13 | Events are decoded on parallel threads and can be applied out of order | Medium | **Open.** |
-| R2-14 | Uninstalling with the helper missing deletes the saved status line and leaves the hooks; the login item is not removed | Medium | **Fixed.** Uninstall falls back to the helper inside the app, refuses to delete `~/.crowsnest` while hooks still point at it, and removes the login item. |
+| R2-14 | Uninstalling with the helper missing deletes the saved status line and leaves the hooks; the login item is not removed | Medium | **Fixed.** Uninstall falls back to the helper inside the app, refuses to delete `~/.ravenisland` while hooks still point at it, and removes the login item. |
 | R2-15 | The open panel uses about 16% CPU while animating (sprites redrawn pixel by pixel) | Medium | **Open.** Idle is under 1%. |
 | R2-16 | A tmux socket path from the environment is only checked for a leading "/" | Low | **Open.** |
 
 ### Residual risk to be aware of
 
-The helper's trust check relies on files in `~/.crowsnest`, which your user account can write.
+The helper's trust check relies on files in `~/.ravenisland`, which your user account can write.
 A process that can already write anywhere in your home folder (or run arbitrary commands as
 you) could replace the helper itself or point the trust record elsewhere. That is outside what
 a same-user tool can defend against; the checks above stop the cheap attacks (replacing the
@@ -133,7 +133,7 @@ socket, forging answers, broadening permission rules).
 
 ## Things to know before you run it
 
-- **Automation permission.** Allowing Crow's Nest to control Ghostty or Terminal lets it
+- **Automation permission.** Allowing Raven Island to control Ghostty or Terminal lets it
   send any scripting command to them. It only uses "focus a tab", built from a validated
   device path, but the permission itself is broad.
 - **Managed machines.** A tool that answers permission prompts and registers global

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Raven Island
+- Crow's Nest is now **Raven Island**: a dynamic island for Claude Code, kept by a flock of
+  smart 8-bit ravens. An existing install upgrades in place: the old hooks are replaced (never
+  duplicated), your remembered status line and preferences carry over, and the old
+  `~/.crowsnest` folder is removed once nothing points at it.
+- Six original raven personas replace the field agents: Huginn the strategist, Muninn the
+  archivist, Quill the scribe, Pip the scout, Nyx the night watch and Tinker the tinkerer,
+  each with its own look and party trick.
+- New logo: a raven on a pixel island under the moon.
+
 ### Panel
 - The open panel's top corners curve outward into the top edge of the screen, so it hangs from
   the notch.

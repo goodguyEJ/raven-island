@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""End-to-end tests: runs a debug build of Crow's Nest beside the real one (its own folder and socket)
+"""End-to-end tests: runs a debug build of Raven Island beside the real one (its own folder and socket)
 and drives it through the helper the way Claude Code would.
 
-Debug builds honour CROWSNEST_HOME and include the `resolve` command that stands in for a click;
+Debug builds honour RAVENISLAND_HOME and include the `resolve` command that stands in for a click;
 release builds have neither. Run with:  python3 scripts/e2e.py
 """
 import json, os, signal, socket, struct, subprocess, sys, threading, time, shutil
@@ -11,11 +11,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT)
 subprocess.run(["swift", "build"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 BIN = subprocess.run(["swift", "build", "--show-bin-path"], capture_output=True, text=True, check=True).stdout.strip()
-BRIDGE, APP = os.path.join(BIN, "crowsnest-bridge"), os.path.join(BIN, "CrowsNestApp")
+BRIDGE, APP = os.path.join(BIN, "ravenisland-bridge"), os.path.join(BIN, "RavenIslandApp")
 # Short path: Unix socket paths are limited to about 100 characters.
-HOME_DIR = os.path.expanduser(f"~/.crowsnest-e2e-{os.getpid()}")
-ENV = dict(os.environ, CROWSNEST_HOME=HOME_DIR)
-SOCK = os.path.join(HOME_DIR, "crowsnest.sock")
+HOME_DIR = os.path.expanduser(f"~/.ravenisland-e2e-{os.getpid()}")
+ENV = dict(os.environ, RAVENISLAND_HOME=HOME_DIR)
+SOCK = os.path.join(HOME_DIR, "ravenisland.sock")
 
 results = []
 def check(name, ok, detail=""):
@@ -240,19 +240,19 @@ try:
     out = p.communicate(timeout=5)[0]
     check("waiting request falls back when the app quits", out == "" and p.returncode == 0, out)
 
-    release = os.path.join(ROOT, "build/Crow's Nest.app/Contents/Helpers/crowsnest-bridge")
+    release = os.path.join(ROOT, "build/Raven Island.app/Contents/Helpers/ravenisland-bridge")
     if os.path.exists(release):
         print("release build")
         r = subprocess.run([release, "resolve", "allow"], capture_output=True, text=True)
         check("release helper has no resolve command", r.returncode == 2 and "usage" in r.stdout, r.stdout[:80])
-        # A release helper must ignore CROWSNEST_HOME: point it at a folder whose remembered status line
+        # A release helper must ignore RAVENISLAND_HOME: point it at a folder whose remembered status line
         # prints a marker, and make sure that command is not the one that runs.
         os.makedirs(HOME_DIR, mode=0o700, exist_ok=True)
         with open(os.path.join(HOME_DIR, "previous-statusline.json"), "w") as f:
             json.dump({"type": "command", "command": "echo E2E-MARKER"}, f)
         debug = subprocess.run([BRIDGE, "statusline"], input="{}", capture_output=True, text=True, env=ENV)
         rel = subprocess.run([release, "statusline"], input="{}", capture_output=True, text=True, env=ENV)
-        check("release helper ignores CROWSNEST_HOME", "E2E-MARKER" in debug.stdout and "E2E-MARKER" not in rel.stdout, rel.stdout[:80])
+        check("release helper ignores RAVENISLAND_HOME", "E2E-MARKER" in debug.stdout and "E2E-MARKER" not in rel.stdout, rel.stdout[:80])
 finally:
     cleanup()
 

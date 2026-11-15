@@ -1,4 +1,4 @@
-# Crow's Nest — Product and Technical Spec
+# Raven Island — Product and Technical Spec
 
 Implementation order is in
 [PLAN.md](PLAN.md).
@@ -28,27 +28,27 @@ takes you to the right terminal with one click. Built as a personal project.
 ## 3. Architecture
 
 ```
-Claude Code session ──hook──▶ crowsnest-bridge ──unix socket──▶ Crow's Nest.app
+Claude Code session ──hook──▶ ravenisland-bridge ──unix socket──▶ Raven Island.app
         ▲                         │                          ├─ SessionStore (state machine)
         └──── decision JSON ◀─────┘                          ├─ NotchWindow (AppKit panel + SwiftUI)
                                                              ├─ ApprovalQueue
-Claude Code status line ──▶ crowsnest-bridge statusline ──socket──▶     ├─ Jumper (per terminal)
+Claude Code status line ──▶ ravenisland-bridge statusline ──socket──▶     ├─ Jumper (per terminal)
                               └─▶ user's previous status line├─ SoundEngine
                                                              ├─ UsageStore
                                                              └─ Notifiers (phone)
 ```
 
-- **Crow's Nest.app** — menu-bar-less agent app (`LSUIElement`). Owns all state; nothing is
+- **Raven Island.app** — menu-bar-less agent app (`LSUIElement`). Owns all state; nothing is
   persisted except settings and a small session cache.
-- **crowsnest-bridge** — a tiny native CLI that Claude Code runs as a hook command. It reads
+- **ravenisland-bridge** — a tiny native CLI that Claude Code runs as a hook command. It reads
   the hook JSON from stdin, adds terminal context from its environment, sends it to the
   app, and for blocking events prints the app's decision to stdout. It must start fast
   (it runs on every tool call) and must never break the agent: on any error, or if the
   app is not running, it exits 0 with no output, which leaves Claude Code's normal
   behaviour in place.
-- **crowsnest-bridge statusline** — wraps the status line slot to capture usage data (F7), then
+- **ravenisland-bridge statusline** — wraps the status line slot to capture usage data (F7), then
   runs the previously configured status line so its output is unchanged.
-- **Transport** — Unix domain socket at `~/.crowsnest/crowsnest.sock`, mode `0600`. Local only;
+- **Transport** — Unix domain socket at `~/.ravenisland/ravenisland.sock`, mode `0600`. Local only;
   no network listener.
 
 ### Wire format
@@ -224,7 +224,7 @@ Each feature lists what "done" means.
   | tmux | `select-window` / `select-pane`, then the attached client's terminal app | Pane, then app |
   | Claude desktop app, anything else | Bring the app forward | App |
 
-- The first scripted jump to Ghostty or Terminal triggers macOS's one-time "Crow's Nest wants
+- The first scripted jump to Ghostty or Terminal triggers macOS's one-time "Raven Island wants
   to control…" prompt. If it is declined, or no terminal matches, the app is simply
   brought forward. With ad-hoc signing the prompt can reappear after a rebuild.
 - Only values matching a strict device-path or pane-id pattern are put into a script.
@@ -238,9 +238,9 @@ Each feature lists what "done" means.
   `rate_limits.seven_day`. Present only on subscription plans, only after the first
   response of a session, and either window may be missing; the strip shows what it has
   and hides when it has nothing.
-- `crowsnest-bridge statusline` is installed as the status line command. It forwards the
+- `ravenisland-bridge statusline` is installed as the status line command. It forwards the
   usage to the app, then runs the status line that was configured before (remembered in
-  `~/.crowsnest/previous-statusline.json`) with the same input and passes its output through,
+  `~/.ravenisland/previous-statusline.json`) with the same input and passes its output through,
   so the visible status line is unchanged. Uninstall puts the previous command back.
 - The last report is kept across relaunches; a window whose reset time has passed is dropped.
 - Status lines are drawn by terminal sessions, so numbers appear after the first
@@ -250,9 +250,9 @@ Each feature lists what "done" means.
 - Distinct short synthesized tones for: needs approval, question, done, error. Played
   when a session enters that state; the same sound never stacks within a second.
 - Per-event toggle, master volume, quiet hours (start and end hour, may wrap midnight).
-- Custom packs: a folder under `~/.crowsnest/sounds/` with files named `approval`,
+- Custom packs: a folder under `~/.ravenisland/sounds/` with files named `approval`,
   `question`, `done`, `error` (wav, aiff, mp3, m4a, or caf). Missing files fall back to
-  the built-in tone. `Crow's Nest --export-sounds DIR` writes the built-in set as a template.
+  the built-in tone. `Raven Island --export-sounds DIR` writes the built-in set as a template.
 - Not built: muting while a macOS Focus mode is on. Reading Focus status needs an
   entitlement an unsigned personal app does not have; quiet hours cover the need.
 
@@ -288,15 +288,14 @@ Each feature lists what "done" means.
 - Not built: appearance options, rebinding shortcuts, custom jump rules, custom agents.
 
 ### F14. Pixel characters
-- A crew of six original field agents, drawn in code as pixel art (`Personas.swift`): each frame
-  is 16 rows by 20 columns, the agent on the left and its prop, drawn at the same scale, on the
-  right. They are in a
-  big-head, small-body style: Bolt the field lead (aviators, earpiece, red tie), Merlo the
-  analyst (glasses, navy suit), Kage the infiltrator (beanie, headset, tactical top), Nova the
-  pilot (ponytail, aviators), Pesto the handler (moustache, brown suit), and Sleuth the
-  investigator (fedora, trench coat). Each session gets one, and keeps it.
-- Party tricks are in character: flashing a badge, pulling up intel on a tablet, radioing in,
-  saluting, handing over a briefcase, finding a clue.
+- A flock of six original 8-bit ravens, drawn in code as pixel art (`Personas.swift`): each
+  frame is 16 rows by 20 columns, the raven on the left and its prop, drawn at the same scale,
+  on the right. Plumage is blue-black with a lighter sheen so the birds stay visible on the
+  black panel. Huginn the strategist (top hat, monocle), Muninn the archivist (scarf, glasses),
+  Quill the scribe (beret), Pip the scout (flying cap, goggles), Nyx the night watch (hood,
+  glowing eye) and Tinker the tinkerer (hard hat). Each session gets one, and keeps it.
+- Party tricks are in character: a bright idea, reading a scroll, writing with a quill, taking
+  off, lighting a lantern, spinning a wrench.
 - Each character is drawn once, standing. Walking, cheering, blinking, and the props for
   every state are composed onto that drawing, so any character can show any state.
 - What a working character does depends on what its session is doing:
@@ -313,8 +312,8 @@ Each feature lists what "done" means.
   cheering by the finished wall with a flag (done), sparks (error).
 - Idle characters walk back and forth. A session that has started but not been given
   anything paces in its row.
-- With nothing running, two of the crew stroll beside the notch (a different pair each
-  hour), and the expanded panel shows the whole crew strolling. Pointing at one makes it
+- With nothing running, two of the flock walk beside the notch (a different pair each
+  hour), and the expanded panel shows the whole flock. Pointing at one makes it
   stop, hop, and do its party trick, with its name and motto underneath.
 - Settings: characters on or off (off brings back plain status icons), and strolling by
   the notch on or off. Everything is still when Reduce Motion is on.
@@ -354,7 +353,7 @@ Each feature lists what "done" means.
 
 ## 10. Coexistence with other tools
 
-Hooks are additive, so another tool can observe sessions alongside Crow's Nest, but two tools
+Hooks are additive, so another tool can observe sessions alongside Raven Island, but two tools
 must not both answer permission requests. The installer reports any other command on the
 permission hook and never removes entries it did not create.
 
@@ -371,7 +370,7 @@ permission hook and never removes entries it did not create.
 
 - **Confirmed:** a permission hook returning allow runs the tool; deny with a message
   blocks it and the agent quotes the message. Verified with real sessions, including one
-  approved through Crow's Nest end to end.
+  approved through Raven Island end to end.
 - **Confirmed:** `permission_suggestions` contains mixed kinds (`addDirectories`,
   `setMode`, `addRules`). "Always allow" applies only `addRules` + allow entries.
 - **Not testable headlessly:** `AskUserQuestion` and `ExitPlanMode` are unavailable in

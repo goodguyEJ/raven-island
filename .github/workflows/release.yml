@@ -24,13 +24,13 @@ jobs:
       - name: Package
         run: |
           cd build
-          ditto -c -k --keepParent "Crow's Nest.app" "CrowsNest-${GITHUB_REF_NAME}.zip"
-          shasum -a 256 "CrowsNest-${GITHUB_REF_NAME}.zip" > "CrowsNest-${GITHUB_REF_NAME}.zip.sha256"
+          ditto -c -k --keepParent "Raven Island.app" "RavenIsland-${GITHUB_REF_NAME}.zip"
+          shasum -a 256 "RavenIsland-${GITHUB_REF_NAME}.zip" > "RavenIsland-${GITHUB_REF_NAME}.zip.sha256"
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            "build/CrowsNest-${GITHUB_REF_NAME}.zip" "build/CrowsNest-${GITHUB_REF_NAME}.zip.sha256" \
-            --title "Crow's Nest ${GITHUB_REF_NAME#v}" \
+            "build/RavenIsland-${GITHUB_REF_NAME}.zip" "build/RavenIsland-${GITHUB_REF_NAME}.zip.sha256" \
+            --title "Raven Island ${GITHUB_REF_NAME#v}" \
             --notes "See [CHANGELOG.md](CHANGELOG.md) for what's new and the README for install steps. This build is not notarized: the first time, macOS will ask you to approve it in System Settings → Privacy & Security."

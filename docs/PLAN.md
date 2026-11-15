@@ -1,4 +1,4 @@
-# Crow's Nest — Implementation Plan
+# Raven Island — Implementation Plan
 
 > **Status:** phases 0–6 and 10 are built and shipped in 0.1.0. Phases 7–9 (phone alerts,
 > remote sessions, other agents) are ideas only and are not planned for a particular release.
@@ -27,10 +27,10 @@ the long tail and can be reordered or dropped without affecting the core.
 
 ## Phase 0 — Skeleton
 
-1. Swift package with three targets: `CrowsNestApp` (executable, AppKit + SwiftUI),
-   `crowsnest-bridge` (executable, Foundation only), `CrowsNestCore` (library shared by both:
-   event models, socket framing, paths), plus `CrowsNestCoreTests`.
-2. `scripts/build-app.sh`: `swift build -c release`, assemble `Crow's Nest.app` (Info.plist with
+1. Swift package with three targets: `RavenIslandApp` (executable, AppKit + SwiftUI),
+   `ravenisland-bridge` (executable, Foundation only), `RavenIslandCore` (library shared by both:
+   event models, socket framing, paths), plus `RavenIslandCoreTests`.
+2. `scripts/build-app.sh`: `swift build -c release`, assemble `Raven Island.app` (Info.plist with
    `LSUIElement=true`, bundle id, icon placeholder), copy the bridge into
    `Contents/Helpers`, ad-hoc codesign.
 3. `scripts/dev.sh`: build, kill any running instance, launch.
@@ -41,15 +41,15 @@ menu bar item with Quit. `swift test` runs.
 
 ## Phase 1 — Event pipeline
 
-1. `CrowsNestCore`: Codable models for hook payloads (decode leniently; keep the raw JSON),
+1. `RavenIslandCore`: Codable models for hook payloads (decode leniently; keep the raw JSON),
    the wire envelope, and the length-prefixed socket framing.
-2. Socket server in the app: Unix domain socket at `~/.crowsnest/crowsnest.sock`, permissions
+2. Socket server in the app: Unix domain socket at `~/.ravenisland/ravenisland.sock`, permissions
    `0600`, one connection per hook invocation, stale socket cleanup on launch.
-3. `crowsnest-bridge`: read stdin, attach terminal context from the environment, connect with
+3. `ravenisland-bridge`: read stdin, attach terminal context from the environment, connect with
    a short timeout, send, and for blocking events wait for the reply and print it to
-   stdout. Any failure: exit 0 with no output so Claude Code behaves as if Crow's Nest were absent.
+   stdout. Any failure: exit 0 with no output so Claude Code behaves as if Raven Island were absent.
 4. `SessionStore`: state machine from SPEC §5, keyed by session id; stale-session reaping.
-5. Installer (`Crow's Nest.app/Contents/Helpers/crowsnest-bridge install|uninstall|status`): merge
+5. Installer (`Raven Island.app/Contents/Helpers/ravenisland-bridge install|uninstall|status`): merge
    hook entries into `~/.claude/settings.json`, timestamped backup first, idempotent,
    entries tagged so uninstall removes only ours. Detect another tool's permission hooks and
    report them (SPEC §10) rather than touching them silently.
@@ -111,7 +111,7 @@ the right window (and tab, where supported) to the front.
 ## Phase 5 — Sounds, settings, launch at login
 
 1. Sound engine: short synthesized tones per event via `AVAudioEngine`, original sound
-   design; per-event enable and volume; custom pack folder (`~/.crowsnest/sounds/<pack>/`).
+   design; per-event enable and volume; custom pack folder (`~/.ravenisland/sounds/<pack>/`).
 2. Settings window: General, Appearance, Sounds, Shortcuts, Integrations, About.
 3. Launch at login via `SMAppService`. Quiet hours / respect Focus.
 
@@ -137,7 +137,7 @@ the right window (and tab, where supported) to the front.
 ## Phase 8 — Remote sessions
 
 1. Cross-compile or script-based bridge for Linux hosts.
-2. `crowsnest-bridge remote add <host>`: copy bridge, install hooks remotely, open an SSH connection
+2. `ravenisland-bridge remote add <host>`: copy bridge, install hooks remotely, open an SSH connection
    with a reverse-forwarded socket, reconnect with backoff.
 3. Host badge on remote sessions; jump opens the local terminal attached to that host.
 
@@ -161,7 +161,7 @@ rules, custom agents, app icon, accessibility pass (VoiceOver labels, reduced mo
 
 ## Working rules
 
-- Tests for everything in `CrowsNestCore` and the installer; UI verified by running the app.
+- Tests for everything in `RavenIslandCore` and the installer; UI verified by running the app.
 - The installer never writes `settings.json` without a backup, and never removes entries
   it did not create.
 - Original work: behaviour comes from Claude Code's public documentation; all code,

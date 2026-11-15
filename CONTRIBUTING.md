@@ -11,12 +11,12 @@ python3 scripts/e2e.py     # end-to-end tests against an isolated debug instance
 ./scripts/build-app.sh     # the app bundle still builds
 ```
 
-- Keep `CrowsNestCore` free of AppKit so it stays unit-testable.
+- Keep `RavenIslandCore` free of AppKit so it stays unit-testable.
 - Anything that touches approvals, the socket, or the installer needs a test, and a note
   in [docs/SECURITY-REVIEW.md](docs/SECURITY-REVIEW.md) if it changes the security model.
 - All artwork and sounds must be original. Please don't add assets from other apps or
   games.
-- UI changes: include a before/after from `Crow's Nest --snapshot DIR`.
+- UI changes: include a before/after from `Raven Island --snapshot DIR`.
 
 ## Reporting bugs
 

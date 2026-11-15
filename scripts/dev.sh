@@ -3,5 +3,5 @@
 set -eu
 cd "$(dirname "$0")/.."
 ./scripts/build-app.sh
-pkill -x "Crow's Nest" 2>/dev/null || true
-open "build/Crow's Nest.app"
+pkill -x "Raven Island" 2>/dev/null || true
+open "build/Raven Island.app"
