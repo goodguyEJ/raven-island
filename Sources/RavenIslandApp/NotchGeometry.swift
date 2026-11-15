@@ -1,4 +1,5 @@
 import AppKit
+import RavenIslandCore
 
 /// Where the panel sits and how big it is, derived from the screen it lives on.
 struct NotchGeometry: Equatable {
@@ -12,6 +13,8 @@ struct NotchGeometry: Equatable {
     var idleStroll = false
     /// With no sessions, the expanded panel shows the flock instead of a plain message.
     var crewStage = false
+    /// With no sessions, what is playing and what is next on the calendar.
+    var idleHome = IdleHome.none
 
     static let wing: CGFloat = 38
     static let expandedWidth: CGFloat = 600
@@ -20,6 +23,7 @@ struct NotchGeometry: Equatable {
     static let maxRows = 5
     static let pagerHeight: CGFloat = 28
     static let pillHeight: CGFloat = 26
+    static let idleHomeHeight: CGFloat = 96
 
     static func forScreen(_ screen: NSScreen) -> NotchGeometry {
         let top = screen.safeAreaInsets.top
@@ -45,7 +49,7 @@ struct NotchGeometry: Equatable {
     /// panel hangs from the notch; the floating pill on other displays has ordinary corners.
     /// None around a bare notch, where nothing shows beside it.
     func earRadius(expanded: Bool, sessionCount: Int) -> CGFloat {
-        guard hasNotch, expanded || sessionCount > 0 || idleStroll else { return 0 }
+        guard hasNotch, expanded || sessionCount > 0 || idleStroll || idleHome.hasCollapsedContent else { return 0 }
         return expanded ? 14 : 7
     }
 
@@ -53,10 +57,10 @@ struct NotchGeometry: Equatable {
 
     func collapsedSize(sessionCount: Int) -> CGSize {
         if hasNotch {
-            let body = notchWidth + (sessionCount > 0 || idleStroll ? 2 * Self.wing : 0)
+            let body = notchWidth + (sessionCount > 0 || idleStroll || idleHome.hasCollapsedContent ? 2 * Self.wing : 0)
             return CGSize(width: body + 2 * earRadius(expanded: false, sessionCount: sessionCount), height: notchHeight)
         }
-        return CGSize(width: sessionCount > 0 ? 178 : (idleStroll ? 96 : 44), height: Self.pillHeight)
+        return CGSize(width: sessionCount > 0 ? 178 : (idleStroll || idleHome.hasCollapsedContent ? 96 : 44), height: Self.pillHeight)
     }
 
     /// With a request card showing, the session list is kept short so the panel stays compact.
@@ -72,7 +76,7 @@ struct NotchGeometry: Equatable {
         if focus {
             list = Self.rowHeight + (sessionCount > 1 ? Self.pagerHeight : 0)
         } else if sessionCount == 0 {
-            list = crewStage ? CrewStage.height : Self.rowHeight
+            list = idleHome.showsPanel && cardHeight == 0 ? Self.idleHomeHeight : (crewStage ? CrewStage.height : Self.rowHeight)
         } else {
             let rows = Self.visibleRows(sessionCount: sessionCount, hasCard: cardHeight > 0)
             // With a card up there is always a footer line, for "Show less".

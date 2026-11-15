@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Added
+- **Idle home.** With no sessions running, the notch shows what is playing in Spotify or
+  Apple Music (play, pause, and skip in the open panel) and today's remaining calendar events,
+  with the next start time beside the notch from an hour before. Calendar and Spotify album
+  art are off until switched on in Settings → General → When nothing is running; album art is
+  the app's only network request. Uninstall now also resets the Calendar and Automation
+  permissions. A raven in headphones listens while music plays, the calendar is a compact
+  timeline of the next three hours, and a small player stays in the header while sessions run.
+
+### Changed
+- The ravens are livelier: they breathe, blink, and move with what they are doing instead of
+  standing still beside their props.
+- The panel's Settings button closes the panel so Settings opens in front of it.
+
 ### Raven Island
 - Crow's Nest is now **Raven Island**: a dynamic island for Claude Code, kept by a flock of
   smart 8-bit ravens. An existing install upgrades in place: the old hooks are replaced (never

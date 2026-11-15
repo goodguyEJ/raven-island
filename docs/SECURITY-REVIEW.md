@@ -114,6 +114,34 @@ you) could replace the helper itself or point the trust record elsewhere. That i
 a same-user tool can defend against; the checks above stop the cheap attacks (replacing the
 socket, forging answers, broadening permission rules).
 
+## Idle home (2026-11-15)
+
+Not part of either review above; recorded here so the next review starts from it.
+
+New untrusted inputs:
+
+- **Distributed notifications** `com.spotify.client.PlaybackStateChanged` and
+  `com.apple.Music.playerInfo`. Any local process can post them, so their payloads are treated
+  like hook payloads: wrong types are ignored, text is capped at 200 characters and shown
+  through `TextSafety.visible`, nothing is interpreted, and nothing reaches disk, the event
+  log, or the diagnostic report (which only says whether a track is known).
+- **An image from `i.scdn.co`**, only when "Load Spotify album art" is on. The address comes
+  from Spotify over Apple Events and must be HTTPS, exactly that host, with no port or user
+  info (`ArtworkPolicy`); redirects elsewhere are refused; the session is ephemeral with no
+  cookies or cache; bodies over 2 MB are dropped; the image is kept in memory for the current
+  track only.
+- **Apple Music artwork** read through Apple Events as raw data, capped at 2 MB.
+
+Controls: scripts sent to the players are fixed strings addressed by bundle identifier; nothing
+from a notification is placed in one. Scripts go only to a player that is already running,
+since addressing one by identifier would launch it. No permission prompt appears unless the
+user clicked a control or switched Calendar on. Calendar access is read-only in use, though
+EventKit only offers full access.
+
+Not verified: Apple Music's payload keys and artwork on a library with tracks (the test Mac's
+library was empty); the artwork fetch against a hostile server; the approval path is
+unchanged by design and covered by the existing end-to-end suite, not re-reviewed.
+
 ## Design properties that held up
 
 - A decision is written only to the connection that created the request. Forged events
@@ -129,9 +157,14 @@ socket, forging answers, broadening permission rules).
   restores the original content (the same settings; keys are re-sorted).
 - Nothing a session says or runs is written to disk. Only preferences and usage
   percentages persist. The diagnostics report contains no prompts, commands, or paths.
-  The app makes no network connections.
+  The app makes no network connections (since the idle home: except Spotify album art, when
+  switched on).
 
 ## Things to know before you run it
+
+- **Music and Calendar.** Allowing Raven Island to control Spotify or Music lets it send any
+  scripting command to them; it only sends play/pause, next, previous, and reads the current
+  track. Calendar access lets it read every calendar; it reads today's events only.
 
 - **Automation permission.** Allowing Raven Island to control Ghostty or Terminal lets it
   send any scripting command to them. It only uses "focus a tab", built from a validated

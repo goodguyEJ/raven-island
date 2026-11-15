@@ -5,6 +5,7 @@ import RavenIslandCore
 struct SettingsView: View {
     @ObservedObject var settings: Settings
     @ObservedObject var model: AppModel
+    @ObservedObject var calendar: CalendarSource
     var preview: (SoundEvent) -> Void
     var exportDiagnostics: () -> Void = {}
 
@@ -43,6 +44,37 @@ struct SettingsView: View {
                 Toggle("Answer requests from the panel", isOn: $settings.answersFromPanel)
                 Text("When off, Raven Island only watches. Approvals, questions, and plans stay in the terminal.")
                     .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("When nothing is running") {
+                Toggle("Show what's playing in Spotify or Music", isOn: $settings.showMusic)
+                Toggle("Load Spotify album art from the internet", isOn: $settings.spotifyArtwork)
+                    .disabled(!settings.showMusic)
+                Text("Off by default. This is the only time Raven Island uses the network.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Toggle("Show today's events", isOn: Binding(get: { settings.showCalendar }, set: { on in
+                    settings.showCalendar = on
+                    if on, calendar.access == .notAsked { calendar.requestAccess() }
+                }))
+                // The grant can vanish (a rebuild re-signs the app) while the switch stays on; asking again
+                // must still wait for a click.
+                if settings.showCalendar, calendar.access == .notAsked {
+                    HStack {
+                        Text("Raven Island needs Calendar access to show your events.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Allow Calendar Access") { calendar.requestAccess() }
+                    }
+                }
+                if calendar.access == .denied {
+                    HStack {
+                        Text("Calendar access is off. Allow it in System Settings → Privacy & Security → Calendars.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Open System Settings") {
+                            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars")!)
+                        }
+                    }
+                }
             }
             Section("Session list") {
                 Picker("Clear finished and unused sessions", selection: $settings.autoClearMinutes) {

@@ -332,7 +332,18 @@ final class AppModel: ObservableObject {
         defer { refreshHookStatus() }
         var installer = Installer()
         installer.legacyRoot = AppPaths.legacyRoot
-        return try installer.uninstall()
+        let change = try installer.uninstall()
+        Self.resetPrivacyGrants()
+        return change
+    }
+
+    /// Uninstall puts everything back, including the Calendar and Automation grants macOS keeps for the app.
+    private static func resetPrivacyGrants() {
+        guard let id = Bundle.main.bundleIdentifier, id == "io.github.goodguyej.ravenisland" else { return }
+        DispatchQueue.global(qos: .utility).async {
+            _ = Jumper.run("/usr/bin/tccutil", ["reset", "Calendar", id])
+            _ = Jumper.run("/usr/bin/tccutil", ["reset", "AppleEvents", id])
+        }
     }
 
     var isConnected: Bool { hookStatus?.isFullyInstalled == true && FileManager.default.isExecutableFile(atPath: AppPaths.installedBridge.path) }

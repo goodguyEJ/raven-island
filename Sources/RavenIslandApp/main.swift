@@ -9,6 +9,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
     let settings = Settings()
     lazy var sounds = SoundPlayer(settings: settings)
+    lazy var music = MusicSource(settings: settings)
+    lazy var calendar = CalendarSource(settings: settings)
     var settingsWindow: NSWindow?
     var setupWindow: NSWindow?
     var server: SocketServer?
@@ -37,13 +39,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         self.server = server
         model.start()
+        if !CommandLine.arguments.contains("--test-mode") {
+            music.start()
+            calendar.start()
+        }
         setUpStatusItem()
-        notch = NotchController(model: model, settings: settings)
-        notch?.onOpenSettings = { [weak self] in self?.showSettings() }
+        notch = NotchController(model: model, settings: settings, music: music, calendar: calendar)
+        notch?.onOpenSettings = { [weak self] below in self?.showSettings(below: below) }
         model.jump = { session in Jumper.jump(to: session) }
         model.diagnostics = { [weak self] in
             guard let self else { return "" }
-            return Diagnostics.report(model: self.model, settings: self.settings)
+            return Diagnostics.report(model: self.model, settings: self.settings, music: self.music, calendar: self.calendar)
         }
         notch?.onSelect = { [weak self] session in
             self?.model.open(session)
@@ -104,7 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setup.target = self
         menu.addItem(setup)
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
+        menu.addItem(withTitle: "Settings…", action: #selector(showSettings as () -> Void), keyEquivalent: ",").target = self
         #if DEBUG
         // The debug window shows prompts and paths; it is not part of release builds.
         menu.addItem(withTitle: "Show Debug Window", action: #selector(showDebugWindow), keyEquivalent: "d").target = self
@@ -145,22 +151,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    @objc func showSettings() {
+    @objc func showSettings() { showSettings(below: nil) }
+
+    func showSettings(below panelFrame: CGRect?) {
         if settingsWindow == nil {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 630),
                                   styleMask: [.titled, .closable], backing: .buffered, defer: false)
             window.title = "Raven Island Settings"
             window.isReleasedWhenClosed = false
-            window.contentViewController = NSHostingController(rootView: SettingsView(settings: settings, model: model, preview: { [weak self] event in
+            window.contentViewController = NSHostingController(rootView: SettingsView(settings: settings, model: model, calendar: calendar, preview: { [weak self] event in
                 self?.sounds.play(event, force: true)
             }, exportDiagnostics: { [weak self] in
                 guard let self else { return }
-                Diagnostics.export(model: self.model, settings: self.settings)
+                Diagnostics.export(model: self.model, settings: self.settings, music: self.music, calendar: self.calendar)
             }))
             window.center()
             settingsWindow = window
         }
         settings.refreshLaunchAtLogin()
+        if let panelFrame, let window = settingsWindow,
+           let visible = (NSScreen.screens.first { $0.frame.intersects(panelFrame) } ?? NSScreen.main)?.visibleFrame {
+            let size = window.frame.size
+            let x = min(max(panelFrame.midX - size.width / 2, visible.minX), visible.maxX - size.width)
+            let y = max(min(panelFrame.minY - 12 - size.height, visible.maxY - size.height), visible.minY)
+            window.setFrameOrigin(NSPoint(x: x, y: y))
+        }
         settingsWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }

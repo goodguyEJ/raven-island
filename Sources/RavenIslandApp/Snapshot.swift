@@ -112,6 +112,102 @@ enum Snapshot {
             try? png.write(to: out.appendingPathComponent(name + ".png"))
             print("wrote \(name).png")
         }
+        writeIdleHome(to: out, notch: notch, plain: plain)
+        let track = NowPlaying(app: .spotify, title: "Night Drive Through the Neon City (Extended Mix)", artist: "The Sample Band",
+                               album: "Samples", isPlaying: true, duration: 214, position: 81, asOf: Date(), trackID: "sample")
+        let headerCases: [(String, [Session], PendingRequest?)] = [
+            ("19-header-mini-player", [all[2], all[3]], nil),
+            ("19b-header-mini-player-compact", [all[2], all[5], all[3]], nil),
+            ("19c-header-mini-player-hidden-for-decision", all, bash),
+        ]
+        for (name, sessions, req) in headerCases {
+            let view = ZStack(alignment: .top) {
+                LinearGradient(colors: [Color(red: 0.36, green: 0.47, blue: 0.62), Color(red: 0.78, green: 0.72, blue: 0.66)],
+                               startPoint: .top, endPoint: .bottom)
+                NotchContentView(sessions: sessions, expanded: true, geometry: notch, animated: false, request: req,
+                                 waitingSessionIDs: req.map { [$0.sessionID] } ?? [], usage: usage, nowPlaying: track)
+            }
+            .frame(width: 680, height: notch.expandedSize(sessionCount: sessions.count, cardHeight: req.map(RequestCard.height(for:)) ?? 0,
+                                                          focus: req != nil).height + 70)
+            let renderer = ImageRenderer(content: view)
+            renderer.scale = 2
+            guard let image = renderer.nsImage, let tiff = image.tiffRepresentation,
+                  let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) else {
+                print("failed: \(name)"); continue
+            }
+            try? png.write(to: out.appendingPathComponent(name + ".png"))
+            print("wrote \(name).png")
+        }
+    }
+
+    /// The idle home with sample music and events, in its main states.
+    static func writeIdleHome(to out: URL, notch: NotchGeometry, plain: NotchGeometry) {
+        let now = Date()
+        let playing = NowPlaying(app: .spotify, title: "Night Drive", artist: "The Sample Band", album: "Samples",
+                                 isPlaying: true, duration: 214, position: 81, asOf: now, trackID: "sample")
+        var paused = playing
+        paused.isPlaying = false
+        let events = [AgendaEvent(id: "1", title: "Standup", start: now + 25 * 60, end: now + 40 * 60, color: 0xE5484D),
+                      AgendaEvent(id: "2", title: "Planning", start: now + 2 * 3600, end: now + 3 * 3600, color: 0x3E8EF7),
+                      AgendaEvent(id: "3", title: "Review", start: now + 4 * 3600, end: now + 5 * 3600, color: 0x30A46C)]
+        let overlap = [AgendaEvent(id: "4", title: "Design review", start: now + 20 * 60, end: now + 80 * 60, color: 0x8E4EC6),
+                       AgendaEvent(id: "5", title: "Customer call", start: now + 50 * 60, end: now + 110 * 60, color: 0xF76B15)]
+            + events.suffix(2)
+        let laterOnly = [AgendaEvent(id: "6", title: "Dinner", start: now + 4 * 3600, end: now + 5 * 3600, color: 0x30A46C)]
+        let label = Agenda.collapsedLabel(events, now: now, calendar: .current, locale: .current)
+        let artwork = NSImage(size: NSSize(width: 64, height: 64), flipped: false) { rect in
+            NSColor(red: 0.85, green: 0.42, blue: 0.30, alpha: 1).setFill(); rect.fill()
+            NSColor(red: 0.98, green: 0.80, blue: 0.40, alpha: 1).setFill()
+            NSBezierPath(ovalIn: rect.insetBy(dx: 18, dy: 18)).fill()
+            return true
+        }
+        func idle(_ track: NowPlaying?, _ agenda: [AgendaEvent], label: String?, agendaOn: Bool) -> IdleHome {
+            IdleHome(nowPlaying: track, showMusic: true, agenda: agenda, collapsedLabel: label, agendaOn: agendaOn)
+        }
+        var strollOff = notch
+        strollOff.idleStroll = false
+        let cases: [(String, NotchGeometry, IdleHome, Bool, Bool)] = [
+            ("11-idle-both-expanded", notch, idle(playing, events, label: label, agendaOn: true), true, true),
+            ("11b-idle-both-collapsed", notch, idle(playing, events, label: label, agendaOn: true), false, true),
+            ("11c-idle-both-pill-expanded", plain, idle(playing, events, label: label, agendaOn: true), true, true),
+            ("11d-idle-both-pill-collapsed", plain, idle(playing, events, label: label, agendaOn: true), false, true),
+            ("12-idle-music-only-expanded", notch, idle(playing, [], label: nil, agendaOn: false), true, true),
+            ("13-idle-calendar-only-expanded", notch, idle(nil, events, label: label, agendaOn: true), true, true),
+            ("13b-idle-calendar-only-collapsed", notch, idle(nil, events, label: label, agendaOn: true), false, true),
+            ("14-idle-track-paused-nothing-else-today", notch, idle(paused, [], label: nil, agendaOn: true), true, true),
+            ("15-idle-controls-denied", notch, idle(playing, events, label: label, agendaOn: true), true, false),
+            ("16-idle-stroll-off-music-collapsed", strollOff, idle(playing, [], label: nil, agendaOn: false), false, true),
+            ("18-idle-raven-listening-collapsed", notch, idle(playing, events, label: label, agendaOn: true), false, true),
+            ("18b-idle-raven-paused-collapsed", notch, idle(paused, [], label: nil, agendaOn: false), false, true),
+            ("18c-idle-raven-pill", plain, idle(playing, events, label: label, agendaOn: true), false, true),
+            ("18d-idle-characters-off-collapsed", notch, idle(playing, events, label: label, agendaOn: true), false, true),
+            ("17-idle-timeline-overlap", notch, idle(playing, overlap, label: nil, agendaOn: true), true, true),
+            ("17b-idle-timeline-later", notch, idle(nil, laterOnly, label: nil, agendaOn: true), true, true),
+        ]
+        for (name, base, home, expanded, allowed) in cases {
+            var g = base
+            g.idleHome = home
+            let track = home.hasTrack ? (home.isPlaying ? playing : paused) : nil
+            let view = ZStack(alignment: .top) {
+                LinearGradient(colors: [Color(red: 0.36, green: 0.47, blue: 0.62), Color(red: 0.78, green: 0.72, blue: 0.66)],
+                               startPoint: .top, endPoint: .bottom)
+                Rectangle().fill(.white.opacity(0.28)).frame(height: 37)
+                NotchContentView(sessions: [], expanded: expanded, geometry: g, animated: name.hasPrefix("18") && !name.hasPrefix("18b"),
+                                 characters: name.hasPrefix("18") && !name.hasPrefix("18d"),
+                                 nowPlaying: track, artwork: name.hasPrefix("12") ? nil : artwork, controlsAllowed: allowed,
+                                 agenda: home.agendaOn ? (name.hasPrefix("17-") ? overlap : name.hasPrefix("17b") ? laterOnly : events) : [])
+                    .padding(.top, g.topOffset + (g.hasNotch ? 0 : 7))
+            }
+            .frame(width: 680, height: expanded ? g.expandedSize(sessionCount: 0).height + g.topOffset + 70 : 90)
+            let renderer = ImageRenderer(content: view)
+            renderer.scale = 2
+            guard let image = renderer.nsImage, let tiff = image.tiffRepresentation,
+                  let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) else {
+                print("failed: \(name)"); continue
+            }
+            try? png.write(to: out.appendingPathComponent(name + ".png"))
+            print("wrote \(name).png")
+        }
     }
 
     static func pick(_ p: Persona, _ state: SessionState, _ work: WorkKind, _ index: Int?) -> [String] {
@@ -124,7 +220,7 @@ enum Snapshot {
         func cell(_ frame: [String], _ p: Persona) -> some View {
             Canvas { context, size in PixelBot.draw(frame, persona: p, in: &context, size: size) }.frame(width: 90, height: 72)
         }
-        let columns = ["stand", "step", "trick", "trick", "think", "search", "run", "build", "ask", "wait", "done", "error"]
+        let columns = ["stand", "step", "trick", "trick", "think", "search", "run", "build", "ask", "wait", "done", "error", "listen", "paused"]
         let view = VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Text("").frame(width: 92)
@@ -145,6 +241,8 @@ enum Snapshot {
                     cell(pick(p, .working, .running, 0), p); cell(pick(p, .working, .building, 1), p)
                     cell(pick(p, .needsApproval, .building, 0), p); cell(pick(p, .waitingForInput, .building, 0), p)
                     cell(pick(p, .done, .building, 0), p); cell(pick(p, .error, .building, 0), p)
+                    cell(PixelSprites.listeningFrames(persona: p, playing: true)[3], p)
+                    cell(PixelSprites.listeningFrames(persona: p, playing: false)[0], p)
                 }
             }
         }

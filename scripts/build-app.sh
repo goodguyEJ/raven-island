@@ -43,7 +43,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>
-  <key>NSAppleEventsUsageDescription</key><string>Raven Island asks your terminal app to bring the right tab to the front when you click a session.</string>
+  <key>NSAppleEventsUsageDescription</key><string>Raven Island asks your terminal app to bring the right tab to the front, and Spotify or Music to play, pause, and skip.</string>
+  <key>NSCalendarsFullAccessUsageDescription</key><string>Raven Island shows today's remaining events beside the notch when no agent is running. It only reads them.</string>
 </dict>
 </plist>
 PLIST

@@ -61,6 +61,18 @@ see its party trick.
   <img src="docs/screens/0-characters.png" width="720" alt="The six ravens in every animation">
 </p>
 
+**When nothing is running.** A raven in headphones listens beside the notch while Spotify or
+Apple Music plays, and the start time of your next event shows once it is within the hour. The
+open panel has the track with large play, pause, and skip buttons, and the next three hours of
+today as a small timeline with a line at the current time. While sessions run, the header keeps
+a small player: the track name and play/pause (hidden while a decision is waiting). Calendar is off until you
+switch it on in Settings, Spotify album art is off until you allow it, and nothing here ever
+opens the panel by itself. With no track and no events, the ravens are back.
+
+<p align="center">
+  <img src="docs/screens/11-idle-both-expanded.png" width="640" alt="The open panel with a track playing on the left and three of today's events on the right">
+</p>
+
 **Jump to the right terminal.** Click a session to bring its terminal forward: the exact tab
 in Ghostty and Terminal.app, the workspace window in VS Code and its forks, the pane in tmux
 (Terminal.app and tmux are preview: written but not yet tested by hand).
@@ -79,6 +91,7 @@ displays without a notch, and an uninstall that puts everything back.
   universal app, so it also runs on Intel Macs, but that hasn't been tested yet. Macs without
   a notch (and external displays) get a small floating pill instead.
 - **Claude Code only.** Other coding agents aren't supported.
+- **Spotify and Apple Music only** for what's playing. Browsers and other players aren't shown.
 - **Usage limits need a Pro or Max plan.** With an API key the usage strip simply stays hidden.
 
 ## Install
@@ -129,7 +142,12 @@ Code, and launches it. A local build is never blocked by Gatekeeper.
 - The first time you click a Ghostty or Terminal session, macOS asks whether Raven Island may
   control that app. It only uses this to focus the right tab; without it, clicking just
   brings the app forward.
-- No network connections, no accounts, no analytics.
+- The first time you press play, pause, or skip, macOS asks whether Raven Island may control
+  Spotify or Music. What's playing shows without it, from the next track change.
+- Turning on "Show today's events" asks for Calendar access. Raven Island only reads events.
+- Uninstall resets the Calendar and Automation permissions macOS keeps for the app.
+- No network connections, with one exception you switch on yourself: loading Spotify album
+  art. No accounts, no analytics.
 
 ## Uninstall
 
@@ -142,7 +160,8 @@ Or from a clone of this repository:
 ```
 
 This removes the hooks, restores your previous status line, removes the login item, and
-deletes the app, `~/.ravenisland`, and the app's preferences. Settings backups in `~/.claude`
+deletes the app, `~/.ravenisland`, and the app's preferences, and resets its Calendar and
+Automation permissions. Settings backups in `~/.claude`
 are left for you to delete; they are copies of your settings from before each change.
 
 ## How it works
@@ -176,7 +195,8 @@ fail safe:
 - The panel asks macOS to keep it out of screen sharing and recordings (on by default).
 - If the app hangs, quits, or crashes, Claude Code shows its own prompt within 3 seconds.
 - Large tool output is never sent to the app; a hook event costs about 5 ms.
-- No network connections. Nothing a session says or runs is written to disk.
+- No network connections, with one exception you switch on yourself: loading Spotify album
+  art. Nothing a session says or runs, and no track or event title, is written to disk.
 
 It went through a security review before release; findings and what is still open are in
 [docs/SECURITY-REVIEW.md](docs/SECURITY-REVIEW.md). To report a problem, see

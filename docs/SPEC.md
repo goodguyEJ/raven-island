@@ -312,12 +312,42 @@ Each feature lists what "done" means.
   cheering by the finished wall with a flag (done), sparks (error).
 - Idle characters walk back and forth. A session that has started but not been given
   anything paces in its row.
+- The ravens move their own bodies in every state, not only their props: a one-pixel breath,
+  blinks, and a pose for the work (head tilt and wing to the chin while thinking, leaning to
+  the lens, a tapping foot, the wing lifting with the hammer, a hop when done). Same redraw
+  rate as before.
 - With nothing running, two of the flock walk beside the notch (a different pair each
   hour), and the expanded panel shows the whole flock. Pointing at one makes it
   stop, hop, and do its party trick, with its name and motto underneath.
 - Settings: characters on or off (off brings back plain status icons), and strolling by
   the notch on or off. Everything is still when Reduce Motion is on.
 - The strollers beside the notch redraw twice a second to keep idle CPU use around 1%.
+
+### F15. Idle home
+Design: [superpowers/specs/2026-11-15-idle-home-design.md](superpowers/specs/2026-11-15-idle-home-design.md), section 5.
+- Only with no sessions and nothing pending. Sessions and approvals always replace it, and it
+  never opens the panel or plays a sound.
+- Music: Spotify and Apple Music, read from the distributed notifications each posts on play,
+  pause, and track change (no permission). Play/pause, next, and previous are fixed Apple
+  Events, sent only to a player that is already running; the first click brings up the macOS
+  Automation prompt. Artwork: Apple Music through Apple Events; Spotify only when "Load
+  Spotify album art" is on (HTTPS, host `i.scdn.co` only, ephemeral session, 2 MB cap).
+- Calendar: EventKit, read-only, off by default; switching it on in Settings asks for access.
+  Today's timed events from now to midnight, not declined or cancelled, at most three. Refreshes
+  on calendar changes, wake, and the next boundary (an hour before a start, a start, an end,
+  midnight); no polling.
+- Collapsed: on the left, the hour's raven in headphones, bobbing while playing (artwork and
+  bars when characters are off); on the right the next event's start time from 60 minutes
+  before, or "now". A wing with nothing to show keeps its raven when strolling is on. Open:
+  track with large controls, elapsed and remaining time on the left; on the right a 3-hour
+  timeline of today (hour lines, a red now-line, events in their calendar's colour, at most two
+  side by side, and a "Later" line for the next event beyond it), in a fixed 96 pt area.
+- With sessions running: a mini player in the header (scrolling name, play/pause), never while
+  a decision is waiting and never changing the panel's size.
+- The panel's Settings button closes the panel first so Settings opens in front; while a
+  decision keeps the panel open, Settings opens below it.
+- Track and event titles are capped at 200 characters, shown through the same visible-marker
+  filter as everything else, and never written to disk, the log, or the diagnostic report.
 
 ## 7. Failure behaviour
 
@@ -336,7 +366,10 @@ Each feature lists what "done" means.
 
 ## 8. Privacy and security
 
-- All processing is local. No analytics, no accounts.
+- All processing is local. No analytics, no accounts. The one network request is Spotify
+  album art (F15), off until the user switches it on.
+- Track and event titles are kept in memory only: never written to disk, the event log, or
+  the diagnostic report.
 - The socket is user-only (`0600`) inside a `0700` directory.
 - Hook payloads can contain file contents and commands: kept in memory only, never
   written to logs unless debug logging is switched on.

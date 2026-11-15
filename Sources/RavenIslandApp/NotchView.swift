@@ -287,6 +287,13 @@ struct NotchContentView: View {
     var onShowAll: (Bool) -> Void = { _ in }
     var onToggleSound: () -> Void = {}
     var onOpenSettings: () -> Void = {}
+    var nowPlaying: NowPlaying? = nil
+    var artwork: NSImage? = nil
+    var controlsAllowed = true
+    var agenda: [AgendaEvent] = []
+    var onMusic: (MusicCommand) -> Void = { _ in }
+    var onOpenPlayer: () -> Void = {}
+    var onOpenCalendar: () -> Void = {}
 
     private var focus: Bool { request != nil && !showAll }
     private var focusSession: Session? { request.flatMap { r in sessions.first { $0.id == r.sessionID } } }
@@ -335,20 +342,44 @@ struct NotchContentView: View {
     }
 
     @ViewBuilder private var collapsedBody: some View {
-        if sessions.isEmpty, geometry.idleStroll {
-            // Nothing running: two of the flock stroll beside the notch (a different pair each hour).
+        if sessions.isEmpty, geometry.idleStroll || geometry.idleHome.hasCollapsedContent {
+            // Nothing running: two of the flock stroll beside the notch (a different pair each hour),
+            // unless a wing has something playing or coming up to show instead.
             let crew = PixelSprites.personas
             let hour = Calendar.current.component(.hour, from: Date())
             let side = min(geometry.hasNotch ? geometry.notchHeight - 6 : NotchGeometry.pillHeight - 4, 26)
+            let idle = geometry.idleHome
             if geometry.hasNotch {
                 HStack(spacing: 0) {
-                    Stroller(persona: crew[hour % crew.count], size: side, range: NotchGeometry.wing - 6, speed: 4, animated: animated, tick: 0.5)
-                        .frame(width: NotchGeometry.wing)
+                    Group {
+                        if idle.hasTrack {
+                            musicWing(idle, side: side, persona: crew[hour % crew.count])
+                        } else if geometry.idleStroll {
+                            Stroller(persona: crew[hour % crew.count], size: side, range: NotchGeometry.wing - 6, speed: 4, animated: animated, tick: 0.5)
+                        } else {
+                            Color.clear
+                        }
+                    }
+                    .frame(width: NotchGeometry.wing)
                     Color.clear.frame(width: geometry.notchWidth)
-                    Stroller(persona: crew[(hour + 3) % crew.count], size: side, range: NotchGeometry.wing - 6, speed: 3, phase: 0.5, animated: animated, tick: 0.5)
-                        .frame(width: NotchGeometry.wing)
+                    Group {
+                        if let label = idle.collapsedLabel {
+                            IdleAgendaWing(label: label)
+                        } else if geometry.idleStroll {
+                            Stroller(persona: crew[(hour + 3) % crew.count], size: side, range: NotchGeometry.wing - 6, speed: 3, phase: 0.5, animated: animated, tick: 0.5)
+                        } else {
+                            Color.clear
+                        }
+                    }
+                    .frame(width: NotchGeometry.wing)
                 }
                 .frame(height: geometry.notchHeight)
+            } else if idle.hasCollapsedContent {
+                HStack(spacing: 10) {
+                    if idle.hasTrack { musicWing(idle, side: side, persona: crew[hour % crew.count]) }
+                    if let label = idle.collapsedLabel { IdleAgendaWing(label: label) }
+                }
+                .frame(height: NotchGeometry.pillHeight)
             } else {
                 Stroller(persona: crew[hour % crew.count], size: side, range: 80, speed: 6, animated: animated, tick: 0.5)
                     .frame(height: NotchGeometry.pillHeight)
@@ -373,6 +404,15 @@ struct NotchContentView: View {
             }
             .padding(.horizontal, 10)
             .frame(height: NotchGeometry.pillHeight)
+        }
+    }
+
+    @ViewBuilder private func musicWing(_ idle: IdleHome, side: CGFloat, persona: Persona) -> some View {
+        if characters {
+            PixelBot(mode: .listening(playing: idle.isPlaying), persona: persona, size: side, animated: animated,
+                     fixedFrame: animated ? nil : 0)
+        } else {
+            IdleMusicWing(artwork: artwork, playing: idle.isPlaying, size: 18, animated: animated)
         }
     }
 
@@ -440,6 +480,10 @@ struct NotchContentView: View {
             .frame(width: geometry.headerSideWidth, alignment: .leading)
             Spacer(minLength: 0)
             HStack(spacing: 4) {
+                if !sessions.isEmpty, request == nil, let nowPlaying {
+                    HeaderMiniPlayer(nowPlaying: nowPlaying, compact: finished > 0, allowed: controlsAllowed, animated: animated,
+                                     onPlayPause: { onMusic(.playPause) }, onOpenPlayer: onOpenPlayer)
+                }
                 if finished > 0 {
                     Button(action: onClearFinished) {
                         Text("Clear \(finished) done")
@@ -507,7 +551,11 @@ struct NotchContentView: View {
                         .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
                     if !queued.isEmpty { UpNextStrip(queued: queued) }
                 }
-                if sessions.isEmpty, geometry.crewStage {
+                if sessions.isEmpty, request == nil, geometry.idleHome.showsPanel {
+                    IdleHomePanel(idleHome: geometry.idleHome, nowPlaying: nowPlaying, artwork: artwork,
+                                  controlsAllowed: controlsAllowed, agenda: agenda, width: size.width - 2 * ear - 36,
+                                  animated: animated, onMusic: onMusic, onOpenPlayer: onOpenPlayer, onOpenCalendar: onOpenCalendar)
+                } else if sessions.isEmpty, geometry.crewStage {
                     CrewStage(width: size.width - 2 * ear - 36, animated: animated)
                 } else if sessions.isEmpty {
                     Text("No active sessions")
@@ -543,9 +591,12 @@ struct NotchRootView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var state: NotchState
     @ObservedObject var settings: Settings
+    @ObservedObject var music: MusicSource
+    @ObservedObject var calendar: CalendarSource
     var reduceMotion: Bool
     var onSelect: (Session) -> Void
     var onOpenSettings: () -> Void = {}
+    var onOpenCalendar: () -> Void = {}
 
     var body: some View {
         NotchContentView(sessions: model.sessions, expanded: state.expanded, geometry: state.geometry,
@@ -565,7 +616,11 @@ struct NotchRootView: View {
                          onEditing: { model.setEditing($0.id, $1) },
                          onShowAll: { state.showAll = $0 },
                          onToggleSound: { settings.soundsEnabled.toggle() },
-                         onOpenSettings: onOpenSettings)
+                         onOpenSettings: onOpenSettings,
+                         nowPlaying: music.nowPlaying, artwork: music.artwork, controlsAllowed: music.controlsAllowed,
+                         agenda: calendar.events,
+                         onMusic: { music.send($0) }, onOpenPlayer: { music.activatePlayer() },
+                         onOpenCalendar: onOpenCalendar)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }

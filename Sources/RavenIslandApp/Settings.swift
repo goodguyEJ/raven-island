@@ -25,6 +25,11 @@ final class Settings: ObservableObject {
     /// The setup window was dismissed with "Not now"; don't open it again on launch.
     @Published var setupDeferred: Bool { didSet { defaults.set(setupDeferred, forKey: "setupDeferred") } }
     @Published var shortcutsEnabled: Bool { didSet { defaults.set(shortcutsEnabled, forKey: "shortcutsEnabled") } }
+    @Published var showMusic: Bool { didSet { defaults.set(showMusic, forKey: "showMusic") } }
+    /// Off by default: loading Spotify album art is the app's only network request.
+    @Published var spotifyArtwork: Bool { didSet { defaults.set(spotifyArtwork, forKey: "spotifyArtwork") } }
+    /// Off by default: turning it on is what asks for Calendar access.
+    @Published var showCalendar: Bool { didSet { defaults.set(showCalendar, forKey: "showCalendar") } }
 
     @Published var soundsEnabled: Bool { didSet { defaults.set(soundsEnabled, forKey: "soundsEnabled") } }
     @Published var volume: Double { didSet { defaults.set(volume, forKey: "volume") } }
@@ -60,7 +65,11 @@ final class Settings: ObservableObject {
             "autoClearMinutes": 5, "clearOnJump": true,
             "soundsEnabled": false, "volume": 0.5, "soundPack": Self.builtInPack,
             "quietHoursEnabled": false, "quietStart": 22, "quietEnd": 7,
+            "showMusic": true, "spotifyArtwork": false, "showCalendar": false,
         ])
+        showMusic = defaults.bool(forKey: "showMusic")
+        spotifyArtwork = defaults.bool(forKey: "spotifyArtwork")
+        showCalendar = defaults.bool(forKey: "showCalendar")
         autoExpand = defaults.bool(forKey: "autoExpand")
         answersFromPanel = defaults.bool(forKey: "answersFromPanel")
         shortcutsEnabled = defaults.bool(forKey: "shortcutsEnabled")
