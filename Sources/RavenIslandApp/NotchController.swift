@@ -38,6 +38,8 @@ final class HoverView: NSView {
 final class NotchController {
     private let model: AppModel
     private let settings: Settings
+    private let music: MusicSource
+    private let calendar: CalendarSource
     private let state: NotchState
     private let panel: NotchPanel
     private var subscriptions = Set<AnyCancellable>()
@@ -52,23 +54,31 @@ final class NotchController {
     private var hasPending: Bool { cardHeight > 0 }
     private var collapseWork: DispatchWorkItem?
     private var shrinkWork: DispatchWorkItem?
+    /// After the gear closes the panel under the pointer, hover stays off until the pointer leaves.
+    private var suppressHover = false
 
     /// Phase 4 hooks this up to jump to the session's terminal.
     var onSelect: (Session) -> Void = { _ in }
-    var onOpenSettings: () -> Void = {}
+    /// A rect asks for Settings to open below the panel, which a waiting decision keeps open.
+    var onOpenSettings: (CGRect?) -> Void = { _ in }
 
     private var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
     private var spring: Animation? { reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.82) }
 
-    init(model: AppModel, settings: Settings) {
+    init(model: AppModel, settings: Settings, music: MusicSource, calendar: CalendarSource) {
         self.model = model
         self.settings = settings
+        self.music = music
+        self.calendar = calendar
         let screen = NotchGeometry.preferredScreen(mode: settings.displayMode)
         var geometry = screen.map(NotchGeometry.forScreen)
             ?? NotchGeometry(hasNotch: false, notchWidth: 0, notchHeight: 0, topOffset: 30,
                              screenFrame: CGRect(x: 0, y: 0, width: 1440, height: 900))
         geometry.crewStage = settings.showCharacters
         geometry.idleStroll = settings.showCharacters && settings.strollWhenIdle
+        geometry.idleHome = IdleHome(nowPlaying: music.nowPlaying, showMusic: settings.showMusic, agenda: calendar.events,
+                                     collapsedLabel: calendar.collapsedLabel,
+                                     agendaOn: settings.showCalendar && calendar.access == .granted)
         state = NotchState(geometry: geometry)
 
         panel = NotchPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
@@ -84,9 +94,12 @@ final class NotchController {
         panel.becomesKeyOnlyIfNeeded = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
 
-        let root = NotchRootView(model: model, state: state, settings: settings, reduceMotion: reduceMotion, onSelect: { [weak self] s in
+        let root = NotchRootView(model: model, state: state, settings: settings, music: music, calendar: calendar,
+                                 reduceMotion: reduceMotion, onSelect: { [weak self] s in
             self?.onSelect(s)
-        }, onOpenSettings: { [weak self] in self?.onOpenSettings() })
+        }, onOpenSettings: { [weak self] in self?.openSettingsFromPanel() }, onOpenCalendar: {
+            NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Calendar.app"))
+        })
         let hosting = FirstMouseHostingView(rootView: root)
         hosting.autoresizingMask = [.width, .height]
         let container = HoverView(frame: .zero)
@@ -118,6 +131,10 @@ final class NotchController {
                 else { DispatchQueue.main.asyncAfter(deadline: .now() + (self.reduceMotion ? 0 : 0.45)) { self.applyFrame() } }
             }
             .store(in: &subscriptions)
+        // Delivered on the next pass of the run loop, after the published values have changed.
+        music.objectWillChange.merge(with: calendar.objectWillChange, settings.objectWillChange)
+            .receive(on: RunLoop.main).sink { [weak self] _ in self?.idleHomeChanged() }
+            .store(in: &subscriptions)
         NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
             .receive(on: RunLoop.main).sink { [weak self] _ in self?.screensChanged() }
             .store(in: &subscriptions)
@@ -131,8 +148,37 @@ final class NotchController {
         var geometry = NotchGeometry.forScreen(screen)
         geometry.crewStage = settings.showCharacters
         geometry.idleStroll = settings.showCharacters && settings.strollWhenIdle
+        geometry.idleHome = idleHome()
         state.geometry = geometry
         applyFrame()
+    }
+
+    private func idleHome() -> IdleHome {
+        IdleHome(nowPlaying: music.nowPlaying, showMusic: settings.showMusic, agenda: calendar.events,
+                 collapsedLabel: calendar.collapsedLabel, agendaOn: settings.showCalendar && calendar.access == .granted)
+    }
+
+    /// Never opens the panel: a track change or an upcoming event only reshapes what is already there.
+    private func idleHomeChanged() {
+        let idle = idleHome()
+        guard idle != state.geometry.idleHome else { return }
+        let before = currentSize()
+        state.geometry.idleHome = idle
+        // With sessions or a decision showing, the idle home is not on screen; leave the frame alone.
+        guard sessionCount == 0, !hasPending else { return }
+        let after = currentSize()
+        // Shrinking while open: let the shape finish animating, or its bottom is cut off.
+        if state.expanded, after.height < before.height {
+            DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0 : 0.45)) { [weak self] in self?.applyFrame() }
+        } else {
+            applyFrame()
+        }
+    }
+
+    private func currentSize() -> CGSize {
+        let g = state.geometry
+        return (state.expanded || shrinkPending) ? g.expandedSize(sessionCount: sessionCount, cardHeight: cardHeight, focus: hasPending && !state.showAll, queued: queuedCount)
+                                                 : g.collapsedSize(sessionCount: sessionCount)
     }
 
     private func sessionsChanged(_ sessions: [Session]) {
@@ -168,13 +214,25 @@ final class NotchController {
     /// The window is exactly the size of the shape, so everything outside it stays clickable.
     /// While a collapse animation is running the window keeps the expanded size.
     private func applyFrame() {
-        let g = state.geometry
-        let size = (state.expanded || shrinkPending) ? g.expandedSize(sessionCount: sessionCount, cardHeight: cardHeight, focus: hasPending && !state.showAll, queued: queuedCount)
-                                                     : g.collapsedSize(sessionCount: sessionCount)
-        panel.setFrame(g.frame(for: size), display: true)
+        panel.setFrame(state.geometry.frame(for: currentSize()), display: true)
+    }
+
+    private func openSettingsFromPanel() {
+        if hasPending {
+            onOpenSettings(panel.frame)
+            return
+        }
+        hovering = false
+        suppressHover = true
+        collapse()
+        onOpenSettings(nil)
     }
 
     private func hoverChanged(_ inside: Bool) {
+        if suppressHover {
+            if !inside { suppressHover = false }
+            return
+        }
         hovering = inside
         if inside {
             collapseWork?.cancel()
@@ -209,6 +267,8 @@ final class NotchController {
             guard let self, !self.state.expanded else { return }
             self.shrinkPending = false
             self.applyFrame()
+            // The window shrank out from under the pointer, so no exit may ever arrive.
+            if self.suppressHover, !self.panel.frame.contains(NSEvent.mouseLocation) { self.suppressHover = false }
         }
         shrinkWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0 : 0.45), execute: work)

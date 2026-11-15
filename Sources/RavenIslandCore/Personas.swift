@@ -34,7 +34,7 @@ extension PixelSprites {
     /// Colours shared by every raven and prop.
     public static let sharedColors: [Character: UInt32] = [
         "W": 0xFFFFFF, "K": 0x141414, "H": 0xCCCCCC, "h": 0xB8804D, "S": 0xDB735C, "s": 0xB35445,
-        "Y": 0xFFD633, "R": 0xFF544D, "G": 0x52DB6B, "Z": 0xB3DBFF,
+        "Y": 0xFFD633, "R": 0xFF544D, "G": 0x52DB6B, "Z": 0xB3DBFF, "P": 0x5EC8E5,
     ]
 
     /// Width of a raven's own drawing; props go to the right of it.
@@ -125,6 +125,46 @@ extension PixelSprites {
         return g
     }
 
+    /// Moves part of the raven's own columns, leaving the prop columns alone.
+    static func shifted(_ body: [[Character]], rows: ClosedRange<Int>, down: Int = 0, right: Int = 0) -> [[Character]] {
+        var g = body
+        for r in rows { for c in 0..<bodyWidth { g[r][c] = "." } }
+        for r in rows {
+            for c in 0..<bodyWidth where body[r][c] != "." {
+                let (nr, nc) = (r + down, c + right)
+                if nr >= 0, nr < size, nc >= 0, nc < bodyWidth { g[nr][nc] = body[r][c] }
+            }
+        }
+        return g
+    }
+
+    /// Breathing: head and chest sink one pixel over the feet.
+    static func breathing(_ body: [[Character]]) -> [[Character]] { shifted(body, rows: 0...12, down: 1) }
+    static func headForward(_ body: [[Character]]) -> [[Character]] { shifted(body, rows: 0...6, right: 1) }
+    static func headBack(_ body: [[Character]]) -> [[Character]] { shifted(body, rows: 0...6, right: -1) }
+    static func wingToChin(_ body: [[Character]]) -> [[Character]] { overlaying(body, [(7, 8, "F"), (7, 9, "B"), (8, 9, "B")]) }
+    static func footUp(_ body: [[Character]]) -> [[Character]] {
+        overlaying(body, [(14, 7, "T"), (15, 6, "."), (15, 7, ".")])
+    }
+    /// Legs tucked as if just off the ground.
+    static func hopping(_ body: [[Character]]) -> [[Character]] {
+        overlaying(body, [(15, 3, "."), (15, 4, "."), (15, 6, "."), (15, 7, "."), (14, 3, "T"), (14, 7, "T")])
+    }
+
+    /// Two passes over a prop cycle, the second with the breath in, so every frame stays distinct.
+    /// `pose` shapes the body for each prop frame; `blinkAt` closes the eyes on one frame of the first pass.
+    static func alive(_ p: Persona, _ props: [[(Int, Int, Character)]], blinkAt: Int? = nil,
+                      pose: (Int, [[Character]]) -> [[Character]] = { $1 }) -> [[String]] {
+        let stand = standing(p)
+        let first = props.indices.map { i -> [String] in
+            let body = pose(i, stand)
+            return strings(overlaying(i == blinkAt ? blinking(body, p) : body, props[i]))
+        }
+        let sunk = props.map { $0.map { r, c, px in c < bodyWidth ? (r + 1, c, px) : (r, c, px) } }
+        let second = props.indices.map { strings(overlaying(breathing(pose($0, stand)), sunk[$0])) }
+        return first + second
+    }
+
     static func overlaying(_ body: [[Character]], _ pixels: [(Int, Int, Character)]) -> [[Character]] {
         var g = body
         for (r, c, pixel) in pixels where r >= 0 && r < size && c >= 0 && c < width { g[r][c] = pixel }
@@ -208,32 +248,52 @@ extension PixelSprites {
     /// Animation frames for a session state, drawn for a given raven.
     /// While working, `work` picks the animation: thinking, searching, running a command, or building.
     public static func frames(for state: SessionState, persona p: Persona, work: WorkKind = .building) -> [[String]] {
-        let stand = standing(p)
-        func on(_ body: [[Character]], _ prop: [(Int, Int, Character)]) -> [String] { strings(overlaying(body, prop)) }
         switch state {
         case .working:
             switch work {
-            case .building: return buildingProps.map { on(stand, $0) }
-            case .thinking: return thinkingProps.map { on(stand, $0) }
-            case .searching: return searchingProps.map { on(stand, $0) }
-            case .running: return runningProps.map { on(stand, $0) }
+            case .building: return alive(p, buildingProps, blinkAt: 1) { i, b in i % 2 == 0 ? armsUp(b) : b }
+            case .thinking: return alive(p, thinkingProps, blinkAt: 1) { i, b in wingToChin(i < 2 ? b : headBack(b)) }
+            case .searching: return alive(p, searchingProps, blinkAt: 0) { i, b in i == 1 ? headForward(b) : b }
+            case .running: return alive(p, runningProps, blinkAt: 0) { i, b in i == 1 ? footUp(b) : b }
             }
         case .needsApproval:
-            return approvalProps.map { on(stand, $0) }
+            return alive(p, approvalProps, blinkAt: 0)
         case .waitingForInput:
-            return [on(stand, waitingProps[0]), on(blinking(stand, p), waitingProps[1])]
+            return alive(p, waitingProps, blinkAt: 1) { i, b in i == 0 ? headBack(b) : b }
         case .done:
-            return [on(armsUp(stand), doneProps[0]), on(stand, doneProps[1])]
+            return alive(p, doneProps, blinkAt: 1) { i, b in i == 0 ? hopping(armsUp(b)) : b }
         case .error:
-            return [on(stand, errorProps[0]), on(p.eyeRows.isEmpty ? armsUp(stand) : blinking(stand, p), errorProps[1])]
+            return alive(p, errorProps, blinkAt: 0) { i, b in i == 1 ? (p.eyeRows.isEmpty ? armsUp(b) : blinking(b, p)) : b }
         case .idle:
             return walkFrames(persona: p)
         }
     }
 
-    /// Two-step walk cycle. The view moves and mirrors the raven; these are just the feet.
+    /// Walk cycle with a bounce, a head bob, and one blink. The view moves and mirrors the raven.
     public static func walkFrames(persona p: Persona) -> [[String]] {
-        [strings(standing(p)), strings(stepping(p))]
+        let (stand, step) = (standing(p), stepping(p))
+        return [stand, step, breathing(stand), breathing(step), headForward(stand), headForward(step),
+                p.eyeRows.isEmpty ? footUp(stand) : blinking(stand, p), breathing(headForward(step))].map(strings)
+    }
+
+    /// Headphones: ear cups beside the head, and a band over it drawn only where nothing else is,
+    /// so every hat stays in front of it.
+    static func headphones(_ body: [[Character]]) -> [[Character]] {
+        var g = body
+        for (r, c) in [(2, 1), (1, 2), (0, 3), (0, 4), (0, 5), (0, 6), (0, 7), (1, 8), (2, 9)] where g[r][c] == "." { g[r][c] = "P" }
+        return overlaying(g, [(3, 1, "P"), (4, 1, "P"), (3, 9, "P"), (4, 9, "P")])
+    }
+
+    static let note = [".WW", ".W.", "WW."]
+
+    /// Playing: a head bob with a note rising beside it. Paused: one still frame, headphones on.
+    public static func listeningFrames(persona p: Persona, playing: Bool) -> [[String]] {
+        let wearing = headphones(standing(p))
+        guard playing else { return [strings(wearing)] }
+        let bob = breathing(wearing)
+        return [strings(wearing), strings(bob),
+                strings(overlaying(wearing, art(note, row: 6, column: 11))),
+                strings(overlaying(bob, art(note, row: 2, column: 12)))]
     }
 
     /// The raven's party trick, shown when the pointer is on it.

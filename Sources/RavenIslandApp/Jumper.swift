@@ -113,7 +113,7 @@ enum Jumper {
     }
 
     /// Runs a tool and returns its stdout, or nil if it could not run, exited non-zero, or ran past `timeout`.
-    private nonisolated static func run(_ tool: String, _ arguments: [String], timeout: TimeInterval = 10) -> String? {
+    nonisolated static func run(_ tool: String, _ arguments: [String], timeout: TimeInterval = 10) -> String? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: tool)
         process.arguments = arguments

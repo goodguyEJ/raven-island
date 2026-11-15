@@ -6,7 +6,7 @@ import RavenIslandCore
 /// session said or ran: no prompts, commands, file paths, or project names.
 @MainActor
 enum Diagnostics {
-    static func report(model: AppModel, settings: Settings) -> String {
+    static func report(model: AppModel, settings: Settings, music: MusicSource, calendar: CalendarSource) -> String {
         var lines: [String] = []
         let info = Bundle.main.infoDictionary ?? [:]
         lines.append("Raven Island diagnostic report")
@@ -36,6 +36,8 @@ enum Diagnostics {
         lines.append("  sounds=\(settings.soundsEnabled) volume=\(String(format: "%.2f", settings.volume)) pack=\(settings.soundPack == Settings.builtInPack ? "built-in" : "custom") quietHours=\(settings.quietHoursEnabled)")
         lines.append("  autoClearMinutes=\(settings.autoClearMinutes) clearOnJump=\(settings.clearOnJump)")
         lines.append("  launchAtLogin=\(settings.launchAtLogin)")
+        // Booleans and a count only: track and event titles never go into the report.
+        lines.append("  idle: music=\(settings.showMusic) spotifyArtwork=\(settings.spotifyArtwork) calendar=\(settings.showCalendar) calendarAccess=\(calendar.access) trackKnown=\(music.nowPlaying != nil) eventsToday=\(calendar.events.count)")
         lines.append("")
         lines.append("Sessions (\(model.sessions.count)), requests waiting: \(model.pending.count), events since launch: \(model.eventCount)")
         for s in model.sessions {
@@ -56,13 +58,13 @@ enum Diagnostics {
         return lines.joined(separator: "\n") + "\n"
     }
 
-    static func export(model: AppModel, settings: Settings) {
+    static func export(model: AppModel, settings: Settings, music: MusicSource, calendar: CalendarSource) {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "ravenisland-diagnostics.txt"
         panel.canCreateDirectories = true
         NSApp.activate(ignoringOtherApps: true)
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        try? report(model: model, settings: settings).write(to: url, atomically: true, encoding: .utf8)
+        try? report(model: model, settings: settings, music: music, calendar: calendar).write(to: url, atomically: true, encoding: .utf8)
     }
 }
 

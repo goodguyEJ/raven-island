@@ -1,7 +1,8 @@
 #!/bin/sh
 # Removes Raven Island from this Mac: its hooks and status line entry in Claude Code's settings
 # (restoring your previous status line), the "open at login" registration, the app in
-# ~/Applications or /Applications, its helper folder, and its preferences.
+# ~/Applications or /Applications, its helper folder, its preferences, and its Calendar and
+# Automation permissions.
 # Settings backups (~/.claude/settings.json.ravenisland-backup-*) are left for you to delete;
 # they are copies of your settings from before each change.
 set -eu
@@ -36,6 +37,8 @@ for installed in "$HOME/Applications/Raven Island.app" "/Applications/Raven Isla
 done
 rm -rf "$HOME/.ravenisland"
 defaults delete io.github.goodguyej.ravenisland 2>/dev/null || true
+tccutil reset Calendar io.github.goodguyej.ravenisland >/dev/null 2>&1 || true
+tccutil reset AppleEvents io.github.goodguyej.ravenisland >/dev/null 2>&1 || true
 # Earlier names of the app.
 rm -rf "$HOME/.crowsnest"
 defaults delete io.github.goodguyej.crowsnest 2>/dev/null || true

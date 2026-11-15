@@ -157,6 +157,26 @@ dropped connection.
 External-display behaviour and display picker, diagnostic report export, custom jump
 rules, custom agents, app icon, accessibility pass (VoiceOver labels, reduced motion).
 
+## Phase 11 — Idle home (music, calendar)
+
+Built. With no sessions, the notch shows what is playing in Spotify or Apple Music and today's
+remaining events. Design: [superpowers/specs/2026-11-15-idle-home-design.md](superpowers/specs/2026-11-15-idle-home-design.md);
+plan: [superpowers/plans/2026-11-15-idle-home-music-calendar.md](superpowers/plans/2026-11-15-idle-home-music-calendar.md).
+
+## Phases 12–18 — After the idle home
+
+Each gets its own short design before it is built, and plugs into the idle home.
+
+| Phase | Feature | Approach | New permission | Main risk or open decision |
+|---|---|---|---|---|
+| 12 | Battery and charging | IOKit power source info and its change notification; percentage in the open panel, a short collapsed indicator on plug or unplug | None | A collapsed-only flash is the limit; it must not open the panel |
+| 13 | Reminders | EventKit reminders beside the calendar list; tick to complete | Reminders | Ticking is a write, the first one outside Claude Code settings. Read-only is the alternative |
+| 14 | File shelf with AirDrop | Drop files on the notch to park them, drag them out again, AirDrop through the system sharing service | None (not sandboxed) | The panel must open on drag-enter, a new way of opening; whether the shelf survives a restart |
+| 15 | Mirror | Camera preview in the panel, running only while it is shown after a click | Camera | Camera access in an app that sits in the approval path; must be visibly off by default |
+| 16 | Gestures and sizing | Two-finger swipe down to open and up to close, beside hover; pill size on displays without a notch | None | Scroll events over the menu bar area behave differently per macOS version |
+| 17 | Volume and brightness HUD | Replace the system overlay | Accessibility or Input Monitoring, plus private APIs | Highest risk: private APIs, a keyboard-level permission for an app in the approval path. Needs a spike and an explicit yes before any design |
+| 18 | Anything playing | System now-playing feed, behind a setting | None | Private framework and a third-party helper; confirm licence and macOS 26 behaviour first |
+
 ---
 
 ## Working rules

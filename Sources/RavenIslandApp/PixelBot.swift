@@ -7,6 +7,7 @@ struct PixelBot: View {
         case state(SessionState, WorkKind)
         case walk
         case trick
+        case listening(playing: Bool)
     }
 
     var mode: Mode
@@ -55,6 +56,7 @@ struct PixelBot: View {
         case .state(let state, let work): return PixelSprites.frames(for: state, persona: persona, work: work)
         case .walk: return PixelSprites.walkFrames(persona: persona)
         case .trick: return PixelSprites.trickFrames(persona: persona)
+        case .listening(let playing): return PixelSprites.listeningFrames(persona: persona, playing: playing)
         }
     }
 
@@ -65,6 +67,7 @@ struct PixelBot: View {
             return PixelSprites.frameDuration(for: state)
         case .walk: return 0.25
         case .trick: return 0.28
+        case .listening: return 0.5
         }
     }
 
@@ -73,6 +76,7 @@ struct PixelBot: View {
         case .state(let state, let work): return state == .working ? work.label : state.label
         case .walk: return "\(persona.name) the \(persona.role), keeping watch"
         case .trick: return "\(persona.name) the \(persona.role)"
+        case .listening(let playing): return playing ? "Listening to music" : "Music paused"
         }
     }
 

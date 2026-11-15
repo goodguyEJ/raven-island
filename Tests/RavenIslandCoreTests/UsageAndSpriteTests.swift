@@ -48,7 +48,7 @@ import Testing
 }
 
 @Suite struct PixelSpriteTests {
-    static let allowed = Set(".BbAaFfTWKHhSsYRGZ")
+    static let allowed = Set(".BbAaFfTWKHhSsYRGZP")
 
     func wellFormed(_ frames: [[String]], _ what: String) {
         #expect(frames.count >= 2, "\(what) should animate")
@@ -173,5 +173,60 @@ import Testing
         let spread = Set((0..<60).map { PixelSprites.persona(for: "session-\($0)").id })
         #expect(spread.count >= 4)   // sessions don't all get the same character
         #expect(PixelSprites.tintIndex(for: "anything", count: 0) == 0)
+    }
+
+    func body(_ frame: [String]) -> String { frame.map { String($0.prefix(PixelSprites.bodyWidth)) }.joined() }
+
+    @Test func ravensMoveInEveryState() {
+        for p in PixelSprites.personas {
+            for state in SessionState.allCases {
+                let kinds: [WorkKind] = state == .working ? WorkKind.allCases : [.building]
+                for kind in kinds {
+                    let frames = PixelSprites.frames(for: state, persona: p, work: kind)
+                    #expect(Set(frames.map(body)).count >= 2, "\(p.id) \(state)/\(kind) body never moves")
+                }
+            }
+            #expect(Set(PixelSprites.walkFrames(persona: p).map(body)).count >= 2)
+        }
+    }
+
+    @Test func ravensBlinkInEveryState() {
+        for p in PixelSprites.personas where !p.eyeRows.isEmpty {
+            let shut = PixelSprites.blinking(PixelSprites.standing(p), p)
+            func blinks(_ frames: [[String]]) -> Bool {
+                frames.contains { f in
+                    p.eyeRows.allSatisfy { String(f[$0].prefix(PixelSprites.bodyWidth)) == String(shut[$0].prefix(PixelSprites.bodyWidth)) }
+                }
+            }
+            for state in SessionState.allCases {
+                let kinds: [WorkKind] = state == .working ? WorkKind.allCases : [.building]
+                for kind in kinds {
+                    #expect(blinks(PixelSprites.frames(for: state, persona: p, work: kind)), "\(p.id) \(state)/\(kind) never blinks")
+                }
+            }
+            #expect(blinks(PixelSprites.walkFrames(persona: p)), "\(p.id) never blinks while walking")
+        }
+    }
+
+    @Test func frameDurationsUnchanged() {
+        #expect(PixelSprites.frameDuration(for: .working) == 0.22)
+        #expect(PixelSprites.frameDuration(for: .needsApproval) == 0.3)
+        #expect(PixelSprites.frameDuration(for: .waitingForInput) == 0.45)
+        #expect(PixelSprites.frameDuration(for: .done) == 0.45)
+        #expect(PixelSprites.frameDuration(for: .error) == 0.35)
+        #expect(PixelSprites.frameDuration(for: .idle) == 0.25)
+    }
+
+    @Test func listeningRavenWearsHeadphones() {
+        for p in PixelSprites.personas {
+            let playing = PixelSprites.listeningFrames(persona: p, playing: true)
+            wellFormed(playing, "\(p.id) listening")
+            #expect(playing.count >= 4)
+            #expect(playing.allSatisfy { $0.joined().contains("P") })
+            #expect(Set(playing.map(body)).count >= 2)
+            let paused = PixelSprites.listeningFrames(persona: p, playing: false)
+            #expect(paused.count == 1); #expect(paused[0].joined().contains("P"))
+            #expect(paused[0] != PixelSprites.walkFrames(persona: p)[0])
+        }
     }
 }
