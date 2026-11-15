@@ -10,25 +10,31 @@ public struct IdleHome: Equatable, Sendable {
     public var agendaOn: Bool
     public var agendaRows: Int
     public var collapsedLabel: String?
+    /// Any of the week strip's six days has an event, so the calendar side is worth opening for.
+    public var weekHasEvents: Bool
 
-    public static let none = IdleHome(hasTrack: false, isPlaying: false, agendaOn: false, agendaRows: 0, collapsedLabel: nil)
+    public static let none = IdleHome(hasTrack: false, isPlaying: false, agendaOn: false, agendaRows: 0, collapsedLabel: nil,
+                                      weekHasEvents: false)
 
-    private init(hasTrack: Bool, isPlaying: Bool, agendaOn: Bool, agendaRows: Int, collapsedLabel: String?) {
+    private init(hasTrack: Bool, isPlaying: Bool, agendaOn: Bool, agendaRows: Int, collapsedLabel: String?, weekHasEvents: Bool) {
         self.hasTrack = hasTrack
         self.isPlaying = isPlaying
         self.agendaOn = agendaOn
         self.agendaRows = agendaRows
         self.collapsedLabel = collapsedLabel
+        self.weekHasEvents = weekHasEvents
     }
 
-    public init(nowPlaying: NowPlaying?, showMusic: Bool, agenda: [AgendaEvent], collapsedLabel: String?, agendaOn: Bool) {
+    public init(nowPlaying: NowPlaying?, showMusic: Bool, agenda: [AgendaEvent], collapsedLabel: String?, agendaOn: Bool,
+                weekHasEvents: Bool = false) {
         let track = showMusic ? nowPlaying : nil
         self.init(hasTrack: track != nil, isPlaying: track?.isPlaying ?? false, agendaOn: agendaOn,
-                  agendaRows: agendaOn ? agenda.count : 0, collapsedLabel: agendaOn ? collapsedLabel : nil)
+                  agendaRows: agendaOn ? agenda.count : 0, collapsedLabel: agendaOn ? collapsedLabel : nil,
+                  weekHasEvents: agendaOn && weekHasEvents)
     }
 
     /// Permission and empty states never count as content.
-    public var showsPanel: Bool { hasTrack || agendaRows > 0 }
+    public var showsPanel: Bool { hasTrack || agendaRows > 0 || weekHasEvents }
     public var showsAgendaHalf: Bool { showsPanel && agendaOn }
     public var hasCollapsedContent: Bool { hasTrack || collapsedLabel != nil }
 }

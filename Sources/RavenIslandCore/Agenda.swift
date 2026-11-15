@@ -76,61 +76,38 @@ public enum Agenda {
     }
 }
 
-/// The compact Today timeline: a fixed window of a few hours and where each event sits in it.
-public struct AgendaTimeline: Equatable, Sendable {
-    public struct Block: Equatable, Sendable {
-        public var event: AgendaEvent
-        /// 0...1 of the window, from its start.
-        public var top: Double
-        public var height: Double
-        public var column: Int
-        public var columns: Int
+/// The week strip: six days around today, and which events fall on each.
+public struct AgendaWeek: Equatable, Sendable {
+    public static let daysBefore = 2
+    public static let daysAfter = 3
+    public var days: [Date]
+    public var today: Date
+    /// Start of the day after the last one: by the calendar, not 24 hours, so a clock change is covered.
+    public var end: Date
+
+    public var start: Date { days[0] }
+
+    public init(now: Date, calendar: Calendar) {
+        today = calendar.startOfDay(for: now)
+        let base = today
+        days = (-Self.daysBefore...Self.daysAfter).map { calendar.date(byAdding: .day, value: $0, to: base) ?? base }
+        end = calendar.date(byAdding: .day, value: Self.daysAfter + 1, to: base) ?? base + Double(Self.daysAfter + 1) * 86_400
     }
 
-    public static let span: TimeInterval = 3 * 3600
-    public var start: Date
-    public var end: Date
-    public var hourMarks: [Date]
-    public var nowOffset: Double
-    public var blocks: [Block]
-    /// The next event after the window, shown only when nothing new starts inside it.
-    public var later: AgendaEvent?
-
-    /// Starts at the latest full or half hour at or before `now`, so "now" stays near the top.
-    public init(events: [AgendaEvent], now: Date, calendar: Calendar, minimumHeight: Double) {
-        let parts = calendar.dateComponents([.hour, .minute], from: now)
-        start = calendar.date(bySettingHour: parts.hour ?? 0, minute: (parts.minute ?? 0) < 30 ? 0 : 30, second: 0, of: now) ?? now
-        end = start + Self.span
-        let firstHour = calendar.dateComponents([.minute], from: start).minute == 0 ? start : start + 1800
-        hourMarks = stride(from: 0.0, through: end.timeIntervalSince(firstHour), by: 3600).map { firstHour + $0 }
-        nowOffset = now.timeIntervalSince(start) / Self.span
-
-        let (windowStart, windowEnd) = (start, end)
-        let remaining = Agenda.remainingToday(events, now: now, calendar: calendar, limit: nil)
-        let visible = remaining.filter { $0.start < windowEnd && ($0.end > windowStart || $0.start >= windowStart) }
-        // Columns follow the drawn extent, which a short event's minimum height can push past its real end.
-        func drawnEnd(_ e: AgendaEvent) -> Date { max(e.end, e.start + minimumHeight * Self.span) }
-        var columnEnds: [Date?] = [nil, nil]
-        var placed: [(event: AgendaEvent, column: Int)] = []
-        var realEnds: [Date?] = [nil, nil]
-        for event in visible {
-            // Without room for the drawn size, an event that does not really overlap still gets a column:
-            // a slightly overlapping block beats a meeting that silently disappears.
-            guard let column = columnEnds.firstIndex(where: { $0.map { $0 <= event.start } ?? true })
-                    ?? realEnds.firstIndex(where: { $0.map { $0 <= event.start } ?? true }) else { continue }
-            columnEnds[column] = drawnEnd(event)
-            realEnds[column] = event.end
-            placed.append((event, column))
+    /// Timed, not declined, not cancelled, overlapping that day; for today only events not yet ended; by start.
+    public func events(on day: Date, from events: [AgendaEvent], now: Date, calendar: Calendar) -> [AgendaEvent] {
+        let dayStart = calendar.startOfDay(for: day)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart + 86_400
+        let isToday = dayStart == today
+        return events.filter { e in
+            !e.isAllDay && !e.isDeclined && !e.isCancelled && e.start < dayEnd
+                && (e.end > dayStart || (e.start == e.end && e.start >= dayStart))
+                && (!isToday || e.end > now)
         }
-        func overlaps(_ a: AgendaEvent, _ b: AgendaEvent) -> Bool { a.start < drawnEnd(b) && b.start < drawnEnd(a) }
-        blocks = placed.map { item in
-            let top = max(0, item.event.start.timeIntervalSince(windowStart) / Self.span)
-            let bottom = min(1, item.event.end.timeIntervalSince(windowStart) / Self.span)
-            let height = min(1, max(bottom - top, minimumHeight))
-            let shared = placed.contains { $0.column != item.column && overlaps($0.event, item.event) }
-            return Block(event: item.event, top: min(top, 1 - height), height: height, column: item.column, columns: shared ? 2 : 1)
-        }
-        let startsInside = remaining.contains { $0.start > now && $0.start < windowEnd }
-        later = startsInside ? nil : remaining.first { $0.start >= windowEnd }
+        .sorted { $0.start < $1.start }
+    }
+
+    public func hasEvents(_ events: [AgendaEvent], now: Date, calendar: Calendar) -> Bool {
+        days.contains { !self.events(on: $0, from: events, now: now, calendar: calendar).isEmpty }
     }
 }

@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import Combine
 import RavenIslandCore
 
@@ -21,6 +22,8 @@ enum MusicCommand {
 final class MusicSource: ObservableObject {
     @Published private(set) var nowPlaying: NowPlaying?
     @Published private(set) var artwork: NSImage?
+    /// The artwork's colour, made readable on black; nil without artwork.
+    @Published private(set) var tint: Color?
     /// False after a control was refused by macOS; the view dims the controls.
     @Published private(set) var controlsAllowed = true
 
@@ -148,6 +151,7 @@ final class MusicSource: ObservableObject {
         guard key != artworkKey else { return }
         artworkKey = key
         artwork = nil
+        tint = nil
         guard let app = nowPlaying?.app, let key, Self.isRunning(app) else { return }
         if app == .spotify, !spotifyArtwork { return }
         Task.detached(priority: .utility) {
@@ -155,9 +159,29 @@ final class MusicSource: ObservableObject {
             let data = app == .appleMusic ? Self.musicArtwork() : await Self.spotifyArtwork()
             await MainActor.run { [weak self] in
                 guard let self, self.artworkKey == key, let data else { return }
-                self.artwork = NSImage(data: data)
+                let image = NSImage(data: data)
+                self.artwork = image
+                self.tint = image.flatMap(Self.tint(of:))
             }
         }
+    }
+
+    static func tint(of image: NSImage) -> Color? {
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 4, pixelsHigh: 4, bitsPerSample: 8,
+                                         samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+                                         bytesPerRow: 0, bitsPerPixel: 0),
+              let context = NSGraphicsContext(bitmapImageRep: rep) else { return nil }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = context
+        image.draw(in: NSRect(x: 0, y: 0, width: 4, height: 4))
+        NSGraphicsContext.restoreGraphicsState()
+        var sum = (r: 0.0, g: 0.0, b: 0.0)
+        for x in 0..<4 { for y in 0..<4 {
+            guard let c = rep.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
+            sum.r += Double(c.redComponent); sum.g += Double(c.greenComponent); sum.b += Double(c.blueComponent)
+        } }
+        let c = ArtworkTint.readable(red: sum.r / 16, green: sum.g / 16, blue: sum.b / 16)
+        return Color(red: c.red, green: c.green, blue: c.blue)
     }
 
     /// Raw image data comes back from osascript as «data PNGf89504E…»: a four-letter type, then hex.

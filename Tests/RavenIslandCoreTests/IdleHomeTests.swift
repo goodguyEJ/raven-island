@@ -42,6 +42,16 @@ import Testing
         #expect(h.agendaRows == 0); #expect(h.collapsedLabel == nil)
     }
 
+    @Test func weekEventOpensPanel() {
+        let h = IdleHome(nowPlaying: nil, showMusic: true, agenda: [], collapsedLabel: nil, agendaOn: true, weekHasEvents: true)
+        #expect(h.showsPanel); #expect(h.showsAgendaHalf)
+    }
+
+    @Test func weekIgnoredWhenAgendaOff() {
+        let h = IdleHome(nowPlaying: nil, showMusic: true, agenda: [], collapsedLabel: nil, agendaOn: false, weekHasEvents: true)
+        #expect(h == .none)
+    }
+
     @Test func artworkPolicy() {
         #expect(ArtworkPolicy.allows(URL(string: "https://i.scdn.co/image/ab67616d0000b273abc")!))
         for refused in ["http://i.scdn.co/image/x", "https://i.scdn.co.example.com/x", "https://example.com/i.scdn.co",

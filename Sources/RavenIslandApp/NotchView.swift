@@ -289,6 +289,7 @@ struct NotchContentView: View {
     var onOpenSettings: () -> Void = {}
     var nowPlaying: NowPlaying? = nil
     var artwork: NSImage? = nil
+    var tint: Color? = nil
     var controlsAllowed = true
     var agenda: [AgendaEvent] = []
     var onMusic: (MusicCommand) -> Void = { _ in }
@@ -552,7 +553,8 @@ struct NotchContentView: View {
                     if !queued.isEmpty { UpNextStrip(queued: queued) }
                 }
                 if sessions.isEmpty, request == nil, geometry.idleHome.showsPanel {
-                    IdleHomePanel(idleHome: geometry.idleHome, nowPlaying: nowPlaying, artwork: artwork,
+                    IdleHomePanel(idleHome: geometry.idleHome, nowPlaying: nowPlaying, artwork: artwork, tint: tint,
+                                  badge: PlayerBadge.image(for: nowPlaying?.app),
                                   controlsAllowed: controlsAllowed, agenda: agenda, width: size.width - 2 * ear - 36,
                                   animated: animated, onMusic: onMusic, onOpenPlayer: onOpenPlayer, onOpenCalendar: onOpenCalendar)
                 } else if sessions.isEmpty, geometry.crewStage {
@@ -617,8 +619,8 @@ struct NotchRootView: View {
                          onShowAll: { state.showAll = $0 },
                          onToggleSound: { settings.soundsEnabled.toggle() },
                          onOpenSettings: onOpenSettings,
-                         nowPlaying: music.nowPlaying, artwork: music.artwork, controlsAllowed: music.controlsAllowed,
-                         agenda: calendar.events,
+                         nowPlaying: music.nowPlaying, artwork: music.artwork, tint: music.tint, controlsAllowed: music.controlsAllowed,
+                         agenda: calendar.week,
                          onMusic: { music.send($0) }, onOpenPlayer: { music.activatePlayer() },
                          onOpenCalendar: onOpenCalendar)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
