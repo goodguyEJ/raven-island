@@ -7,10 +7,8 @@ on:
 
 jobs:
   build-and-test:
-    strategy:
-      matrix:
-        os: [macos-14, macos-15]
-    runs-on: ${{ matrix.os }}
+    # GitHub no longer offers macOS 14 runners, so macOS 14 support is untested here.
+    runs-on: macos-15
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
