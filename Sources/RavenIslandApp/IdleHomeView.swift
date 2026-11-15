@@ -85,6 +85,8 @@ struct IdleHomePanel: View {
     var idleHome: IdleHome
     var nowPlaying: NowPlaying?
     var artwork: NSImage?
+    var tint: Color?
+    var badge: NSImage?
     var controlsAllowed: Bool
     var agenda: [AgendaEvent]
     var width: CGFloat
@@ -114,15 +116,27 @@ struct IdleHomePanel: View {
 
     private func musicHalf(_ track: NowPlaying) -> some View {
         HStack(spacing: 12) {
-            IdleArtwork(artwork: artwork, size: 56)
-                .onTapGesture(perform: onOpenPlayer)
+            ZStack(alignment: .bottomLeading) {
+                if artwork != nil {
+                    IdleArtwork(artwork: artwork, size: 56)
+                } else {
+                    SpinningRecord(app: track.app, playing: track.isPlaying, animated: animated, size: 56)
+                }
+                if let badge {
+                    Image(nsImage: badge).resizable().frame(width: 18, height: 18)
+                        .padding(1.5).background(Circle().fill(.black))
+                        .offset(x: 3, y: -3)
+                        .accessibilityLabel(track.app.displayName)
+                }
+            }
+            .onTapGesture(perform: onOpenPlayer)
             VStack(alignment: .leading, spacing: 2) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(TextSafety.visible(track.title))
                         .font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
                     if !track.artist.isEmpty {
                         Text(TextSafety.visible(track.artist))
-                            .font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.58))
+                            .font(.system(size: 11.5)).foregroundStyle(tint ?? .white.opacity(0.58))
                     }
                 }
                 .lineLimit(1).truncationMode(.tail)
@@ -169,7 +183,7 @@ struct IdleHomePanel: View {
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule().fill(.white.opacity(0.15))
-                    Capsule().fill(.white.opacity(0.75)).frame(width: proxy.size.width * fraction)
+                    Capsule().fill(tint ?? .white.opacity(0.75)).frame(width: proxy.size.width * fraction)
                 }
             }
             .frame(height: 3)
@@ -184,103 +198,113 @@ struct IdleHomePanel: View {
     }
 
     private var agendaHalf: some View {
-        AgendaTimelineView(events: agenda, onOpenCalendar: onOpenCalendar)
+        AgendaWeekView(events: agenda, onOpenCalendar: onOpenCalendar)
             .padding(.vertical, 8)
     }
 }
 
-struct AgendaTimelineView: View {
+struct AgendaWeekView: View {
     var events: [AgendaEvent]
     var onOpenCalendar: () -> Void
+    /// Lets snapshots show a day other than today selected.
+    var selectedOverride: Date? = nil
+    @State private var picked: (day: Date, today: Date)?
 
-    private static let nowColor = Color(red: 1, green: 0.27, blue: 0.23)
-    private static let labelWidth: CGFloat = 34
+    private static let todayBlue = Color(red: 0.04, green: 0.52, blue: 1)
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
+            let week = AgendaWeek(now: context.date, calendar: .current)
+            // A pick from before midnight no longer applies: back to today.
+            let day = selectedOverride ?? picked.flatMap { $0.today == week.today ? $0.day : nil } ?? week.today
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .center, spacing: 6) {
+                    monthYear(week.today)
+                    HStack(spacing: 0) {
+                        ForEach(week.days, id: \.self) { d in dayButton(d, week: week, selected: d == day) }
+                    }
+                }
+                rows(for: day, week: week, now: context.date)
+                Spacer(minLength: 0)
+            }
+        }
+        .onAppear { picked = nil }
+    }
+
+    private func monthYear(_ today: Date) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(today.formatted(.dateTime.month(.abbreviated))).font(.system(size: 14, weight: .semibold)).foregroundStyle(.white)
+            Text(today.formatted(.dateTime.year())).font(.system(size: 11)).foregroundStyle(.white.opacity(0.5))
+        }
+        .frame(width: 36, alignment: .leading)
+    }
+
+    private func dayButton(_ day: Date, week: AgendaWeek, selected: Bool) -> some View {
+        let isToday = day == week.today
+        return Button { picked = (day, week.today) } label: {
+            VStack(spacing: 2) {
+                Text(day.formatted(.dateTime.weekday(.abbreviated)))
+                    .font(.system(size: 9.5, weight: .semibold))
+                    .foregroundStyle(.white.opacity(isToday || selected ? 0.9 : 0.5))
+                Text(day.formatted(.dateTime.day()))
+                    .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(.white.opacity(day < week.today ? 0.45 : 0.9))
+                    .frame(width: 22, height: 22)
+                    .background(Circle().fill(isToday ? Self.todayBlue : .clear))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 3)
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(.white.opacity(selected ? 0.1 : 0)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(day.formatted(date: .complete, time: .omitted))
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    @ViewBuilder private func rows(for day: Date, week: AgendaWeek, now: Date) -> some View {
+        let list = week.events(on: day, from: events, now: now, calendar: .current)
+        if list.isEmpty {
+            HStack(spacing: 8) {
+                Image(systemName: "calendar.badge.checkmark").font(.system(size: 16)).foregroundStyle(.white.opacity(0.6))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(day == week.today ? "No events today" : "No events").font(.system(size: 12, weight: .semibold)).foregroundStyle(.white.opacity(0.85))
+                    Text("Enjoy your free time!").font(.system(size: 10.5)).foregroundStyle(.white.opacity(0.5))
+                }
+            }
+            .padding(.leading, 4)
+        } else {
             VStack(alignment: .leading, spacing: 3) {
-                Text("Today").font(.system(size: 10.5, weight: .semibold)).foregroundStyle(.white.opacity(0.45))
-                if events.isEmpty {
-                    Text("Nothing else today").font(.system(size: 12)).foregroundStyle(.white.opacity(0.5))
-                    Spacer(minLength: 0)
-                } else {
-                    content(now: context.date)
+                ForEach(Array(list.prefix(2).enumerated()), id: \.element.id) { index, event in
+                    row(event, more: index == 1 ? list.count - 2 : 0)
                 }
             }
         }
+    }
+
+    private func row(_ event: AgendaEvent, more: Int) -> some View {
+        HStack(spacing: 6) {
+            Text(Agenda.timeLabel(event.start, calendar: .current, locale: .current))
+                .font(.system(size: 10.5, weight: .semibold).monospacedDigit()).foregroundStyle(.white.opacity(0.6))
+                .lineLimit(1).frame(width: 52, alignment: .leading)
+            RoundedRectangle(cornerRadius: 1).fill(Self.color(event)).frame(width: 3, height: 12)
+            Text(TextSafety.visible(event.title)).font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.9))
+                .lineLimit(1).truncationMode(.tail)
+            Spacer(minLength: 4)
+            if more > 0 {
+                Text("+\(more) more").font(.system(size: 10.5, weight: .medium)).foregroundStyle(.white.opacity(0.5)).fixedSize()
+            }
+        }
+        .frame(height: 15)
         .contentShape(Rectangle())
         .onTapGesture(perform: onOpenCalendar)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
     }
 
-    @ViewBuilder private func content(now: Date) -> some View {
-        GeometryReader { proxy in
-            let timeline = AgendaTimeline(events: events, now: now, calendar: .current,
-                                          minimumHeight: 12 / Double(max(proxy.size.height, 12)))
-            grid(timeline, size: proxy.size)
-        }
-        let timeline = AgendaTimeline(events: events, now: now, calendar: .current, minimumHeight: 0)
-        if let later = timeline.later {
-            Text("Later: \(Agenda.timeLabel(later.start, calendar: .current, locale: .current)) \(TextSafety.visible(later.title))")
-                .font(.system(size: 10.5)).foregroundStyle(.white.opacity(0.6))
-                .lineLimit(1).truncationMode(.tail)
-        }
-    }
-
-    private func grid(_ timeline: AgendaTimeline, size: CGSize) -> some View {
-        let y = { (date: Date) in CGFloat(date.timeIntervalSince(timeline.start) / AgendaTimeline.span) * size.height }
-        let lane = size.width - Self.labelWidth
-        return ZStack(alignment: .topLeading) {
-            ForEach(timeline.hourMarks, id: \.self) { mark in
-                HStack(spacing: 4) {
-                    Text(mark.formatted(Date.FormatStyle(locale: .current, calendar: .current, timeZone: .current).hour()))
-                        .font(.system(size: 9.5, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(.white.opacity(0.45))
-                        .lineLimit(1).fixedSize()
-                        .frame(width: Self.labelWidth - 4, alignment: .leading)
-                    Rectangle().fill(.white.opacity(0.12)).frame(height: 1)
-                }
-                .frame(height: 10)
-                .offset(y: y(mark) - 5)
-            }
-            ForEach(timeline.blocks, id: \.event.id) { block in
-                let columnWidth = lane / CGFloat(block.columns)
-                EventBlock(event: block.event)
-                    .frame(width: columnWidth - 2, height: CGFloat(block.height) * size.height - 1)
-                    .offset(x: Self.labelWidth + CGFloat(block.column) * columnWidth, y: CGFloat(block.top) * size.height)
-            }
-            HStack(spacing: 0) {
-                Circle().fill(Self.nowColor).frame(width: 5, height: 5)
-                Rectangle().fill(Self.nowColor).frame(height: 1)
-            }
-            .frame(width: lane + 3)
-            .offset(x: Self.labelWidth - 3, y: CGFloat(timeline.nowOffset) * size.height - 2.5)
-            .accessibilityHidden(true)
-        }
-        .frame(width: size.width, height: size.height, alignment: .topLeading)
-        .clipped()
-    }
-}
-
-private struct EventBlock: View {
-    var event: AgendaEvent
-
-    private var color: Color {
+    private static func color(_ event: AgendaEvent) -> Color {
         guard let rgb = event.color else { return SessionState.working.color }
         return Color(red: Double(rgb >> 16 & 0xFF) / 255, green: Double(rgb >> 8 & 0xFF) / 255, blue: Double(rgb & 0xFF) / 255)
-    }
-
-    var body: some View {
-        HStack(spacing: 3) {
-            Rectangle().fill(color).frame(width: 2)
-            Text(TextSafety.visible(event.title))
-                .font(.system(size: 11, weight: .medium)).foregroundStyle(.white.opacity(0.92))
-                .lineLimit(1).truncationMode(.tail)
-            Spacer(minLength: 0)
-        }
-        .background(RoundedRectangle(cornerRadius: 3, style: .continuous).fill(color.opacity(0.35)))
-        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(Agenda.timeLabel(event.start, calendar: .current, locale: .current)) \(TextSafety.visible(event.title))")
     }
 }
 
@@ -368,5 +392,72 @@ struct Marquee: View {
         }
         .frame(height: 14)
         .clipped()
+    }
+}
+
+struct SpinningRecord: View {
+    var app: MusicApp
+    var playing: Bool
+    var animated: Bool
+    var size: CGFloat
+    @State private var angle: Double = 0
+    @State private var startedAt: Date?
+
+    private var label: Color {
+        app == .spotify ? Color(red: 0x1D / 255.0, green: 0xB9 / 255.0, blue: 0x54 / 255.0)
+                        : Color(red: 0xFA / 255.0, green: 0x2D / 255.0, blue: 0x48 / 255.0)
+    }
+
+    var body: some View {
+        Group {
+            if playing && animated {
+                TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+                    disc.rotationEffect(.degrees(angle + context.date.timeIntervalSince(startedAt ?? context.date) * 180))
+                }
+                .onAppear { startedAt = Date() }
+                .onDisappear { keepAngle() }
+            } else {
+                disc.rotationEffect(.degrees(angle))
+            }
+        }
+        .onChange(of: playing) { _, nowPlaying in
+            guard animated else { return }
+            if nowPlaying { startedAt = Date() } else { keepAngle() }
+        }
+        .frame(width: size, height: size)
+        .background(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous).fill(.white.opacity(0.06)))
+        .accessibilityHidden(true)
+    }
+
+    /// Holds the record where it stopped instead of snapping back.
+    private func keepAngle() {
+        if let startedAt { angle += Date().timeIntervalSince(startedAt) * 180 }
+        startedAt = nil
+    }
+
+    private var disc: some View {
+        ZStack {
+            Circle().fill(Color(white: 0.07))
+            ForEach([0.86, 0.72, 0.58], id: \.self) { r in
+                Circle().stroke(.white.opacity(0.08), lineWidth: 0.8).frame(width: size * 0.9 * r, height: size * 0.9 * r)
+            }
+            Circle().fill(label).frame(width: size * 0.34, height: size * 0.34)
+            Rectangle().fill(.white.opacity(0.35)).frame(width: size * 0.12, height: 1.5).offset(x: size * 0.08)
+            Circle().fill(.black).frame(width: size * 0.06, height: size * 0.06)
+        }
+        .frame(width: size * 0.9, height: size * 0.9)
+    }
+}
+
+/// The playing app's own icon, as macOS draws it; nothing is bundled.
+enum PlayerBadge {
+    @MainActor private static var cache: [MusicApp: NSImage?] = [:]
+
+    @MainActor static func image(for app: MusicApp?) -> NSImage? {
+        guard let app else { return nil }
+        if let cached = cache[app] { return cached }
+        let icon = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.bundleID).map { NSWorkspace.shared.icon(forFile: $0.path) }
+        cache[app] = icon
+        return icon
     }
 }

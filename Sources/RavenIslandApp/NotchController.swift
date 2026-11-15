@@ -78,7 +78,9 @@ final class NotchController {
         geometry.idleStroll = settings.showCharacters && settings.strollWhenIdle
         geometry.idleHome = IdleHome(nowPlaying: music.nowPlaying, showMusic: settings.showMusic, agenda: calendar.events,
                                      collapsedLabel: calendar.collapsedLabel,
-                                     agendaOn: settings.showCalendar && calendar.access == .granted)
+                                     agendaOn: settings.showCalendar && calendar.access == .granted,
+                                     weekHasEvents: AgendaWeek(now: Date(), calendar: .current)
+                                        .hasEvents(calendar.week, now: Date(), calendar: .current))
         state = NotchState(geometry: geometry)
 
         panel = NotchPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
@@ -155,7 +157,8 @@ final class NotchController {
 
     private func idleHome() -> IdleHome {
         IdleHome(nowPlaying: music.nowPlaying, showMusic: settings.showMusic, agenda: calendar.events,
-                 collapsedLabel: calendar.collapsedLabel, agendaOn: settings.showCalendar && calendar.access == .granted)
+                 collapsedLabel: calendar.collapsedLabel, agendaOn: settings.showCalendar && calendar.access == .granted,
+                 weekHasEvents: AgendaWeek(now: Date(), calendar: .current).hasEvents(calendar.week, now: Date(), calendar: .current))
     }
 
     /// Never opens the panel: a track change or an upcoming event only reshapes what is already there.

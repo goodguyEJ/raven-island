@@ -63,8 +63,9 @@ see its party trick.
 
 **When nothing is running.** A raven in headphones listens beside the notch while Spotify or
 Apple Music plays, and the start time of your next event shows once it is within the hour. The
-open panel has the track with large play, pause, and skip buttons, and the next three hours of
-today as a small timeline with a line at the current time. While sessions run, the header keeps
+open panel has the track with large play, pause, and skip buttons, coloured from the album art
+and marked with the player's icon (a spinning record stands in when there is no art), and a
+week strip: click any of six days around today to see its events. While sessions run, the header keeps
 a small player: the track name and play/pause (hidden while a decision is waiting). Calendar is off until you
 switch it on in Settings, Spotify album art is off until you allow it, and nothing here ever
 opens the panel by itself. With no track and no events, the ravens are back.

@@ -5,11 +5,14 @@ import RavenIslandCore
 
 enum CalendarAccess { case notAsked, granted, denied }
 
-/// Today's remaining events, read-only. Nothing here asks for access except `requestAccess()`,
+/// The week strip's events and today's remaining ones, read-only. Nothing here asks for access except `requestAccess()`,
 /// which only the Settings toggle calls.
 @MainActor
 final class CalendarSource: ObservableObject {
     @Published private(set) var events: [AgendaEvent] = []
+    @Published private(set) var week: [AgendaEvent] = []
+    /// Changes at midnight even when the events do not, so whatever depends on "today" is recomputed.
+    @Published private(set) var today = Date.distantPast
     @Published private(set) var collapsedLabel: String?
     @Published private(set) var access: CalendarAccess
 
@@ -57,20 +60,20 @@ final class CalendarSource: ObservableObject {
         let current = Self.currentAccess()
         if current != access { access = current }
         guard showCalendar ?? settings.showCalendar, current == .granted else {
-            publish([], nil)
+            publish([], [], nil)
             return
         }
         let now = Date()
         let calendar = Calendar.current
-        let start = calendar.startOfDay(for: now)
-        let end = calendar.date(byAdding: .day, value: 1, to: start) ?? now.addingTimeInterval(86_400)
-        let all = store.events(matching: store.predicateForEvents(withStart: start, end: end, calendars: nil)).map { e in
+        let window = AgendaWeek(now: now, calendar: calendar)
+        if today != window.today { today = window.today }
+        let all = store.events(matching: store.predicateForEvents(withStart: window.start, end: window.end, calendars: nil)).map { e in
             AgendaEvent(id: "\(e.eventIdentifier ?? "")|\(e.startDate.timeIntervalSince1970)", title: e.title ?? "",
                         start: e.startDate, end: e.endDate, isAllDay: e.isAllDay,
                         isDeclined: e.attendees?.contains { $0.isCurrentUser && $0.participantStatus == .declined } ?? false,
                         isCancelled: e.status == .canceled, color: Self.rgb(e.calendar?.cgColor))
         }
-        publish(Agenda.remainingToday(all, now: now, calendar: calendar, limit: nil),
+        publish(Agenda.remainingToday(all, now: now, calendar: calendar, limit: nil), all,
                 Agenda.collapsedLabel(all, now: now, calendar: calendar, locale: .current))
         let boundary = Agenda.nextBoundary(all, now: now, calendar: calendar)
         timer = Timer.scheduledTimer(withTimeInterval: max(1, boundary.timeIntervalSinceNow + 0.5), repeats: false) { [weak self] _ in
@@ -84,8 +87,9 @@ final class CalendarSource: ObservableObject {
         return byte(c.redComponent) << 16 | byte(c.greenComponent) << 8 | byte(c.blueComponent)
     }
 
-    private func publish(_ events: [AgendaEvent], _ label: String?) {
+    private func publish(_ events: [AgendaEvent], _ week: [AgendaEvent], _ label: String?) {
         if events != self.events { self.events = events }
+        if week != self.week { self.week = week }
         if label != collapsedLabel { collapsedLabel = label }
     }
 }

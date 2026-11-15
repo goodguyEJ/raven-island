@@ -101,7 +101,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setUpStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.image = NSImage(systemSymbolName: "bird", accessibilityDescription: "Raven Island")
+        item.button?.image = MenuBarIcon.image()
         let menu = NSMenu()
         let summary = NSMenuItem(title: "No sessions", action: nil, keyEquivalent: "")
         summary.isEnabled = false

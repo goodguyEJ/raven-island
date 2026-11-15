@@ -115,6 +115,7 @@ enum Snapshot {
         writeIdleHome(to: out, notch: notch, plain: plain)
         let track = NowPlaying(app: .spotify, title: "Night Drive Through the Neon City (Extended Mix)", artist: "The Sample Band",
                                album: "Samples", isPlaying: true, duration: 214, position: 81, asOf: Date(), trackID: "sample")
+        writeWeekStrips(to: out)
         let headerCases: [(String, [Session], PendingRequest?)] = [
             ("19-header-mini-player", [all[2], all[3]], nil),
             ("19b-header-mini-player-compact", [all[2], all[5], all[3]], nil),
@@ -150,10 +151,7 @@ enum Snapshot {
         let events = [AgendaEvent(id: "1", title: "Standup", start: now + 25 * 60, end: now + 40 * 60, color: 0xE5484D),
                       AgendaEvent(id: "2", title: "Planning", start: now + 2 * 3600, end: now + 3 * 3600, color: 0x3E8EF7),
                       AgendaEvent(id: "3", title: "Review", start: now + 4 * 3600, end: now + 5 * 3600, color: 0x30A46C)]
-        let overlap = [AgendaEvent(id: "4", title: "Design review", start: now + 20 * 60, end: now + 80 * 60, color: 0x8E4EC6),
-                       AgendaEvent(id: "5", title: "Customer call", start: now + 50 * 60, end: now + 110 * 60, color: 0xF76B15)]
-            + events.suffix(2)
-        let laterOnly = [AgendaEvent(id: "6", title: "Dinner", start: now + 4 * 3600, end: now + 5 * 3600, color: 0x30A46C)]
+        let tomorrowOnly = [AgendaEvent(id: "t", title: "Dentist", start: now + 24 * 3600, end: now + 25 * 3600, color: 0x30A46C)]
         let label = Agenda.collapsedLabel(events, now: now, calendar: .current, locale: .current)
         let artwork = NSImage(size: NSSize(width: 64, height: 64), flipped: false) { rect in
             NSColor(red: 0.85, green: 0.42, blue: 0.30, alpha: 1).setFill(); rect.fill()
@@ -162,7 +160,9 @@ enum Snapshot {
             return true
         }
         func idle(_ track: NowPlaying?, _ agenda: [AgendaEvent], label: String?, agendaOn: Bool) -> IdleHome {
-            IdleHome(nowPlaying: track, showMusic: true, agenda: agenda, collapsedLabel: label, agendaOn: agendaOn)
+            IdleHome(nowPlaying: track, showMusic: true,
+                     agenda: Agenda.remainingToday(agenda, now: now, calendar: .current, limit: nil), collapsedLabel: label,
+                     agendaOn: agendaOn, weekHasEvents: AgendaWeek(now: now, calendar: .current).hasEvents(agenda, now: now, calendar: .current))
         }
         var strollOff = notch
         strollOff.idleStroll = false
@@ -181,21 +181,26 @@ enum Snapshot {
             ("18b-idle-raven-paused-collapsed", notch, idle(paused, [], label: nil, agendaOn: false), false, true),
             ("18c-idle-raven-pill", plain, idle(playing, events, label: label, agendaOn: true), false, true),
             ("18d-idle-characters-off-collapsed", notch, idle(playing, events, label: label, agendaOn: true), false, true),
-            ("17-idle-timeline-overlap", notch, idle(playing, overlap, label: nil, agendaOn: true), true, true),
-            ("17b-idle-timeline-later", notch, idle(nil, laterOnly, label: nil, agendaOn: true), true, true),
+            ("20-music-badge-tint", notch, idle(playing, events, label: label, agendaOn: true), true, true),
+            ("20b-record-spotify", notch, idle(playing, [], label: nil, agendaOn: false), true, true),
+            ("20c-record-music", notch, idle(paused, [], label: nil, agendaOn: false), true, true),
+            ("21c-week-empty-today", notch, idle(nil, tomorrowOnly, label: nil, agendaOn: true), true, true),
         ]
         for (name, base, home, expanded, allowed) in cases {
             var g = base
             g.idleHome = home
-            let track = home.hasTrack ? (home.isPlaying ? playing : paused) : nil
+            var track = home.hasTrack ? (home.isPlaying ? playing : paused) : nil
+            if name.hasPrefix("20c") { track?.app = .appleMusic }
+            let art = name.hasPrefix("12") || name.hasPrefix("20b") || name.hasPrefix("20c") ? nil : artwork
+            let agenda = name.hasPrefix("21c") ? tomorrowOnly : events
             let view = ZStack(alignment: .top) {
                 LinearGradient(colors: [Color(red: 0.36, green: 0.47, blue: 0.62), Color(red: 0.78, green: 0.72, blue: 0.66)],
                                startPoint: .top, endPoint: .bottom)
                 Rectangle().fill(.white.opacity(0.28)).frame(height: 37)
                 NotchContentView(sessions: [], expanded: expanded, geometry: g, animated: name.hasPrefix("18") && !name.hasPrefix("18b"),
                                  characters: name.hasPrefix("18") && !name.hasPrefix("18d"),
-                                 nowPlaying: track, artwork: name.hasPrefix("12") ? nil : artwork, controlsAllowed: allowed,
-                                 agenda: home.agendaOn ? (name.hasPrefix("17-") ? overlap : name.hasPrefix("17b") ? laterOnly : events) : [])
+                                 nowPlaying: track, artwork: art, tint: art.flatMap(MusicSource.tint(of:)), controlsAllowed: allowed,
+                                 agenda: home.agendaOn ? agenda : [])
                     .padding(.top, g.topOffset + (g.hasNotch ? 0 : 7))
             }
             .frame(width: 680, height: expanded ? g.expandedSize(sessionCount: 0).height + g.topOffset + 70 : 90)
@@ -271,6 +276,30 @@ extension Snapshot {
         if let image = renderer.nsImage, let tiff = image.tiffRepresentation,
            let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
             try? png.write(to: out.appendingPathComponent("11-setup.png"))
+        }
+    }
+}
+
+extension Snapshot {
+    /// The week strip on its own with tomorrow selected, so the result does not depend on the time of day.
+    static func writeWeekStrips(to out: URL) {
+        let tomorrow = AgendaWeek(now: Date(), calendar: .current).days[AgendaWeek.daysBefore + 1]
+        let titles = ["Standup", "Design review", "Customer call", "Planning", "Retro"]
+        let colors: [UInt32] = [0xE5484D, 0x8E4EC6, 0xF76B15, 0x3E8EF7, 0x30A46C]
+        var five: [AgendaEvent] = []
+        for k in 0..<5 {
+            let start: Date = tomorrow + TimeInterval(9 * 3600 + k * 5400)
+            five.append(AgendaEvent(id: "f\(k)", title: titles[k], start: start, end: start + 1800, color: colors[k]))
+        }
+        for (name, events) in [("21b-week-more", five), ("21d-week-other-day", [five[4]])] {
+            let view = AgendaWeekView(events: events, onOpenCalendar: {}, selectedOverride: tomorrow)
+                .frame(width: 240, height: 80).padding(12).background(Color.black)
+            let renderer = ImageRenderer(content: view)
+            renderer.scale = 2
+            guard let image = renderer.nsImage, let tiff = image.tiffRepresentation,
+                  let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) else { continue }
+            try? png.write(to: out.appendingPathComponent(name + ".png"))
+            print("wrote \(name).png")
         }
     }
 }

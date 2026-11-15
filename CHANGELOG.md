@@ -8,10 +8,14 @@
   with the next start time beside the notch from an hour before. Calendar and Spotify album
   art are off until switched on in Settings → General → When nothing is running; album art is
   the app's only network request. Uninstall now also resets the Calendar and Automation
-  permissions. A raven in headphones listens while music plays, the calendar is a compact
-  timeline of the next three hours, and a small player stays in the header while sessions run.
+  permissions. A raven in headphones listens while music plays, the player's icon and colours
+  from the album art mark the track (a spinning record when there is no art), a week strip shows
+  six days with each day's events a click away, and a small player stays in the header while
+  sessions run.
+- Settings offers "Allow Calendar Access" when a rebuild has cleared the Calendar grant.
 
 ### Changed
+- The menu bar icon is a small island with palms instead of the raven.
 - The ravens are livelier: they breathe, blink, and move with what they are doing instead of
   standing still beside their props.
 - The panel's Settings button closes the panel so Settings opens in front of it.

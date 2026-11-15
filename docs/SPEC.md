@@ -339,9 +339,12 @@ Design: [superpowers/specs/2026-11-15-idle-home-design.md](superpowers/specs/202
 - Collapsed: on the left, the hour's raven in headphones, bobbing while playing (artwork and
   bars when characters are off); on the right the next event's start time from 60 minutes
   before, or "now". A wing with nothing to show keeps its raven when strolling is on. Open:
-  track with large controls, elapsed and remaining time on the left; on the right a 3-hour
-  timeline of today (hour lines, a red now-line, events in their calendar's colour, at most two
-  side by side, and a "Later" line for the next event beyond it), in a fixed 96 pt area.
+  track with large controls, elapsed and remaining time on the left, the artist and progress
+  bar tinted from the artwork, the player's own icon (from macOS) on the art's lower-left, and a
+  spinning record when there is no art; on the right month and year and a strip of six days
+  (two before today, three after; today in a blue circle). Clicking a day lists its events
+  (two rows and "+N more") or "No events today / Enjoy your free time!". The calendar side
+  counts as content when any of the six days has an event. Fixed 96 pt area.
 - With sessions running: a mini player in the header (scrolling name, play/pause), never while
   a decision is waiting and never changing the panel's size.
 - The panel's Settings button closes the panel first so Settings opens in front; while a

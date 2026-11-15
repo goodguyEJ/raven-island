@@ -494,3 +494,123 @@ when "Clear N done" shows; the "Later" line and dropped-overlap rules above.
 
 Exact pixel art of the headphones per persona, block corner radius and colours' opacity,
 scroll speed, spacing.
+
+## 9. Round 3: player badge, artwork colours, record, week strip (2026-11-15)
+
+Status: draft for approval. Same branch and PR. Everything in sections 5 and 8 holds unless
+changed here.
+
+### 9.1 Intent
+
+The owner wants the open idle panel to look closer to the reference they shared (a screenshot
+of boring.notch): which player is playing at a glance, colour taken from the music, something
+alive when there is no artwork, and a calendar that shows the week and lets them look at another
+day without leaving the notch. boring.notch is GPL-3.0: the screenshot is a reference for ideas
+only; no code or assets.
+
+### 9.2 Decisions (owner decided)
+
+1. A badge with the playing app's icon on the **lower-left** corner of the artwork.
+2. The artist name and the progress bar are **tinted from the artwork**.
+3. With no artwork, a **spinning record** instead of the note glyph.
+4. The calendar side takes the reference's format: month and year, a **week strip** with today
+   highlighted, and the selected day's events or "No events today" under it.
+5. **Clicking a day shows its events** in place.
+
+### 9.3 Approaches considered
+
+| Piece | Chosen | Rejected, and why |
+|---|---|---|
+| Badge | The installed app's own icon from macOS (`NSWorkspace.icon(forFile:)` on the app's URL), drawn at runtime | Bundling Spotify or Apple logos (third-party trademarks; CONTRIBUTING forbids other apps' artwork) |
+| Tint | Average colour of the artwork drawn into a tiny bitmap, then raised in brightness and saturation to read on black | A dominant-colour histogram (more code, little visible difference at this size) |
+| No artwork | A record drawn in SwiftUI, turning while playing | Keeping the note glyph (owner asked for the record) |
+| Days shown | Six days: two before today, today, three after | The calendar week Mon–Sat (on a Saturday nothing after today would show) |
+| Day click | Shows that day's events under the strip | Opening Calendar on that day (leaves the notch) |
+
+### 9.4 Design
+
+**Music half** (open idle panel)
+
+```
+ ┌────────┐  Night Drive
+ │  art   │  The Sample Band          ← artist in the tint
+ │        │  1:21 ━━━━━━──────── -2:12 ← filled part in the tint
+ └[▣]─────┘       ⏮    ⏯    ⏭
+   └ app icon, 18pt, lower-left, dark ring
+```
+
+- Badge: the playing app's icon (Spotify or Music) at about 18pt, inset 3pt from the lower-left
+  corner, with a 1.5pt black ring. Shown on artwork and on the record. If macOS has no icon for
+  the app, no badge.
+- Tint: computed once per artwork image. Without artwork the tint is white, as today. The tint
+  is never darker than a minimum brightness and never fully grey (a floor on saturation only
+  when the average has a hue), so text stays readable on black. Title stays white.
+- Record: same size and corner radius box as the artwork. A near-black disc with three faint
+  groove rings, a centre label in the player's colour (Spotify green `#1DB954`, Music red
+  `#FA2D48` — plain colours, not logos) and a spindle hole. Turns about one revolution every
+  2 seconds while playing, holds its angle when paused, still with Reduce Motion. The badge
+  sits on it the same way.
+- The collapsed headphone raven, controls, and progress layout from round 2 are unchanged.
+
+**Calendar half** (replaces the round 2 timeline)
+
+```
+ Nov   Thu Fri  Sat  Sun Mon Tue
+ 2026  13  14  (15)  16  17  18      ← today in a blue circle; selected day in a panel tint
+ ───────────────────────────────
+  9:30  ▌Standup
+ 13:00  ▌Planning            +2 more
+   — or —
+        [calendar icon]
+        No events today
+        Enjoy your free time!
+```
+
+- Left: month (short name) over year, in the locale.
+- Strip: six days, from two days before today to three after. Each day: weekday (short, locale)
+  over the date. Today: the date in a filled blue circle. Selected day (today by default): a
+  rounded panel behind its column. Days are buttons; clicking selects.
+- Under the strip: the selected day's timed events, not declined, not cancelled, soonest first,
+  at most two rows (start time in the locale's style, colour bar, title through
+  `TextSafety.visible`), then "+N more" if there are more. For today, only events not yet ended,
+  as now. For other days, all of that day's events. An event is listed under every day it
+  overlaps, as Calendar does, so an overnight event shows on both days (builder's call).
+  Clicking a row brings Calendar forward, as today; it does not jump to the day, which would need
+  Apple Events to Calendar and a new permission (builder's call).
+- Empty selected day: a calendar glyph, "No events today" (or "No events" for another day),
+  and "Enjoy your free time!" under it, in secondary text.
+- Selection goes back to today when the panel collapses and at midnight.
+- Height stays 96pt.
+
+**Content and data**
+
+- CalendarSource reads events for the six-day window instead of today only, and publishes them
+  grouped by day. Refresh triggers stay as in 5.3 (store change, wake, next boundary, midnight).
+- What counts as content changes (owner left it to the author's judgement): the calendar side
+  counts as content when any of the six days has an event, so the user can look ahead even when
+  today is clear and nothing is playing. With an empty week, the flock comes back as before.
+  The collapsed time label still uses today only.
+- Diagnostics: `eventsToday` stays; titles are still never reported.
+
+### 9.5 Constraints kept
+
+Everything in 5.5, 8.6 and the plans' Global Constraints. Idle height 96pt, wing 38pt. No
+network beyond the opt-in Spotify art. No prompt beyond a user's click. Core stays free of
+AppKit (the tint computation, which needs image drawing, lives in the app target; its pure
+colour adjustment is in Core and unit-tested).
+
+### 9.6 Verification
+
+- Unit tests: the six-day window across a month and year boundary, grouping by day, the
+  selected day's rows (today excludes ended events, other days do not), "+N more", the colour
+  adjustment (dark, grey, saturated inputs).
+- Snapshots: art with badge and tint; record with badge, Spotify and Music; week strip with
+  today selected and events; another day selected; empty day; "+N more".
+- Hand checks: the badge matches the playing app; the tint follows the art and resets without
+  it; the record turns and stops; clicking days shows their events; the selection resets after
+  the panel closes.
+
+### 9.7 Left to the builder
+
+Exact sizes inside the 96pt, ring and badge shading, groove opacity, the selected-day panel
+colour, the tint's exact floor values.
