@@ -13,6 +13,8 @@
   six days with each day's events a click away, and a small player stays in the header while
   sessions run.
 - Settings offers "Allow Calendar Access" when a rebuild has cleared the Calendar grant.
+- When the calendar is off or not allowed, the open panel shows a small card with the one step
+  that turns it on, instead of an empty space beside the music.
 
 ### Changed
 - The menu bar icon is a small island with palms instead of the raven.
