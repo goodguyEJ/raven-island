@@ -337,6 +337,7 @@ struct NotchContentView: View {
         .frame(width: size.width, height: size.height)
         .clipShape(shape)
         .contentShape(shape)
+        .environment(\.ravenHeadphones, nowPlaying?.isPlaying == true)
         .animation(animated ? .spring(response: 0.36, dampingFraction: 0.82) : nil, value: sessions.count)
         .animation(animated ? .spring(response: 0.36, dampingFraction: 0.82) : nil, value: request?.id)
         .animation(animated ? .spring(response: 0.36, dampingFraction: 0.82) : nil, value: showAll)

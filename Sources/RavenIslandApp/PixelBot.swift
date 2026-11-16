@@ -18,6 +18,7 @@ struct PixelBot: View {
     var flipped = false
     /// Draw exactly this frame instead of running the animation (the caller is already ticking).
     var fixedFrame: Int?
+    @Environment(\.ravenHeadphones) private var headphones
 
     init(state: SessionState, work: WorkKind = .building, persona: Persona, size: CGFloat = 20, animated: Bool = true) {
         self.mode = .state(state, work); self.persona = persona; self.size = size; self.animated = animated
@@ -53,9 +54,9 @@ struct PixelBot: View {
 
     private var frames: [[String]] {
         switch mode {
-        case .state(let state, let work): return PixelSprites.frames(for: state, persona: persona, work: work)
-        case .walk: return PixelSprites.walkFrames(persona: persona)
-        case .trick: return PixelSprites.trickFrames(persona: persona)
+        case .state(let state, let work): return PixelSprites.frames(for: state, persona: persona, work: work, headphones: headphones)
+        case .walk: return PixelSprites.walkFrames(persona: persona, headphones: headphones)
+        case .trick: return PixelSprites.trickFrames(persona: persona, headphones: headphones)
         case .listening(let playing): return PixelSprites.listeningFrames(persona: persona, playing: playing)
         }
     }
@@ -205,3 +206,14 @@ struct CrewStage: View {
     }
 }
 
+private struct RavenHeadphonesKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// Music is playing: every raven drawn below puts headphones on.
+    var ravenHeadphones: Bool {
+        get { self[RavenHeadphonesKey.self] }
+        set { self[RavenHeadphonesKey.self] = newValue }
+    }
+}

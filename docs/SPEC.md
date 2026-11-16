@@ -316,6 +316,8 @@ Each feature lists what "done" means.
   blinks, and a pose for the work (head tilt and wing to the chin while thinking, leaning to
   the lens, a tapping foot, the wing lifting with the hammer, a hop when done). Same redraw
   rate as before.
+- While Spotify or Music is playing, every raven in the panel wears headphones over whatever
+  it is doing.
 - With nothing running, two of the flock walk beside the notch (a different pair each
   hour), and the expanded panel shows the whole flock. Pointing at one makes it
   stop, hop, and do its party trick, with its name and motto underneath.
