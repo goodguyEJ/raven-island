@@ -112,10 +112,14 @@ extension PixelSprites {
         return g
     }
 
-    /// Wings raised: the wing edges lift out past the shoulders on both sides.
+    /// Wings raised: the wing edges lift out past the shoulders on both sides, and the folded wing
+    /// along the body (its edge and sheen) goes, or the raven would seem to have a third wing.
     static func armsUp(_ body: [[Character]]) -> [[Character]] {
         var g = body
         for (r, c) in [(6, 0), (7, 0), (8, 0), (8, 1), (6, 10), (7, 10), (8, 10), (8, 9)] where g[r][c] == "." { g[r][c] = "B" }
+        // (11, 9) stays: a prop's arm (the hammer) joins the body there.
+        for (r, c) in [(9, 1), (10, 1), (11, 0), (11, 1), (12, 0), (9, 9), (10, 9)] { g[r][c] = "." }
+        for (r, c) in [(9, 2), (10, 3)] where g[r][c] == "F" { g[r][c] = "B" }
         return g
     }
 
@@ -278,12 +282,12 @@ extension PixelSprites {
                 p.eyeRows.isEmpty ? footUp(stand) : blinking(stand, p), breathing(headForward(step))].map(strings)
     }
 
-    /// Headphones: ear cups beside the head, and a band over it drawn only where nothing else is,
-    /// so every hat stays in front of it.
+    /// Headphones seen side-on, as the ravens face right: one cup over the ear just behind the eye,
+    /// and the band up over the crown, hidden wherever a hat or goggles sit on top.
     static func headphones(_ body: [[Character]]) -> [[Character]] {
-        var g = body
-        for (r, c) in [(2, 1), (1, 2), (0, 3), (0, 4), (0, 5), (0, 6), (0, 7), (1, 8), (2, 9)] where g[r][c] == "." { g[r][c] = "P" }
-        return overlaying(g, [(3, 1, "P"), (4, 1, "P"), (3, 9, "P"), (4, 9, "P")])
+        var g = overlaying(body, [(3, 3, "P"), (3, 4, "P"), (4, 3, "P"), (4, 4, "P")])
+        for (r, c) in [(1, 4), (2, 4)] where "BbF.".contains(g[r][c]) { g[r][c] = "P" }
+        return g
     }
 
     static let note = [".WW", ".W.", "WW."]

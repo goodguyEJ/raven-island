@@ -251,4 +251,37 @@ import Testing
             #expect(PixelSprites.frames(for: .working, persona: p) == PixelSprites.frames(for: .working, persona: p, headphones: false))
         }
     }
+
+    @Test func headphonesSitOnTheEarSideOn() {
+        for p in PixelSprites.personas {
+            let g = PixelSprites.headphones(PixelSprites.standing(p))
+            for (r, row) in g.enumerated() {
+                for (c, pixel) in row.enumerated() where pixel == "P" {
+                    #expect((3...4).contains(c) && r <= 4, "\(p.id): headphone pixel at row \(r) column \(c) is off the ear")
+                }
+            }
+            #expect(g[3][3] == "P" && g[4][4] == "P", "\(p.id): no ear cup")
+        }
+    }
+
+    @Test func raisedWingsFoldAwayTheRestingWing() {
+        for p in PixelSprites.personas {
+            let g = PixelSprites.armsUp(PixelSprites.standing(p))
+            for r in 9...12 {
+                #expect(g[r][0] == "." && g[r][1] == ".", "\(p.id): folded wing left at row \(r)")
+            }
+            #expect(g[9][9] == "." && g[10][9] == ".", "\(p.id): folded wing right")
+            #expect(!g[9...10].contains { $0.contains("F") }, "\(p.id): wing sheen still drawn")
+        }
+    }
+
+    @Test func hammerArmStaysAttached() {
+        for p in PixelSprites.personas {
+            for (i, frame) in PixelSprites.frames(for: .working, persona: p, work: .building).enumerated() {
+                for r in 11...13 where Array(frame[r])[10] == "B" {
+                    #expect(Array(frame[r])[9] != ".", "\(p.id) frame \(i): hammer arm floats off the body at row \(r)")
+                }
+            }
+        }
+    }
 }
