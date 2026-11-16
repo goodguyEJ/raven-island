@@ -341,12 +341,14 @@ struct NotchContentView: View {
                         if idle.hasTrack {
                             musicWing(idle, side: side, persona: crew[hour % crew.count])
                         } else if geometry.idleStroll {
-                            Stroller(persona: crew[hour % crew.count], size: side, range: NotchGeometry.wing - 6, speed: 4, animated: animated, tick: 0.5, waves: true)
+                            Stroller(persona: crew[hour % crew.count], size: side, range: NotchGeometry.wing - 14, speed: 4, animated: animated, tick: 0.5, waves: true)
                         } else {
                             Color.clear
                         }
                     }
-                    .frame(width: NotchGeometry.wing)
+                    // Clear of the panel's outer edge, matching the time's margin on the right.
+                    .padding(.leading, 8)
+                    .frame(width: NotchGeometry.wing, alignment: .leading)
                     Color.clear.frame(width: geometry.notchWidth)
                     NotchClock(rotates: rotateDetails).frame(width: NotchGeometry.wing)
                 }
