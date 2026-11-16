@@ -16,7 +16,7 @@ struct NotchGeometry: Equatable {
     /// With no sessions, what is playing and what is next on the calendar.
     var idleHome = IdleHome.none
 
-    static let wing: CGFloat = 38
+    static let wing: CGFloat = 46
     static let expandedWidth: CGFloat = 600
     static let rowHeight: CGFloat = 54
     /// Rows per page of the session list; more sessions go on further pages.
