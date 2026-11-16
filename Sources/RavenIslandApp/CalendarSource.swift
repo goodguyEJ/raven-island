@@ -5,8 +5,8 @@ import RavenIslandCore
 
 enum CalendarAccess { case notAsked, granted, denied }
 
-/// The week strip's events and today's remaining ones, read-only. Nothing here asks for access except `requestAccess()`,
-/// which only the Settings toggle calls.
+/// The week strip's events and today's remaining ones, read-only. Nothing here asks for access except
+/// `requestAccess()`, which only runs from a click (the Settings toggle or button, or the panel's calendar card).
 @MainActor
 final class CalendarSource: ObservableObject {
     @Published private(set) var events: [AgendaEvent] = []

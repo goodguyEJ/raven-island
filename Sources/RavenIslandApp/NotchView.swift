@@ -295,6 +295,8 @@ struct NotchContentView: View {
     var onMusic: (MusicCommand) -> Void = { _ in }
     var onOpenPlayer: () -> Void = {}
     var onOpenCalendar: () -> Void = {}
+    var calendarPrompt: CalendarPrompt? = nil
+    var onCalendarPrompt: () -> Void = {}
 
     private var focus: Bool { request != nil && !showAll }
     private var focusSession: Session? { request.flatMap { r in sessions.first { $0.id == r.sessionID } } }
@@ -557,7 +559,8 @@ struct NotchContentView: View {
                     IdleHomePanel(idleHome: geometry.idleHome, nowPlaying: nowPlaying, artwork: artwork, tint: tint,
                                   badge: PlayerBadge.image(for: nowPlaying?.app),
                                   controlsAllowed: controlsAllowed, agenda: agenda, width: size.width - 2 * ear - 36,
-                                  animated: animated, onMusic: onMusic, onOpenPlayer: onOpenPlayer, onOpenCalendar: onOpenCalendar)
+                                  animated: animated, onMusic: onMusic, onOpenPlayer: onOpenPlayer, onOpenCalendar: onOpenCalendar,
+                                  calendarPrompt: calendarPrompt, onCalendarPrompt: onCalendarPrompt)
                 } else if sessions.isEmpty, geometry.crewStage {
                     CrewStage(width: size.width - 2 * ear - 36, animated: animated)
                 } else if sessions.isEmpty {
@@ -623,7 +626,32 @@ struct NotchRootView: View {
                          nowPlaying: music.nowPlaying, artwork: music.artwork, tint: music.tint, controlsAllowed: music.controlsAllowed,
                          agenda: calendar.week,
                          onMusic: { music.send($0) }, onOpenPlayer: { music.activatePlayer() },
-                         onOpenCalendar: onOpenCalendar)
+                         onOpenCalendar: onOpenCalendar,
+                         calendarPrompt: calendarPrompt, onCalendarPrompt: resolveCalendarPrompt)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private var calendarPrompt: CalendarPrompt? {
+        guard settings.showCalendar else { return .turnOn }
+        switch calendar.access {
+        case .granted: return nil
+        case .notAsked: return .allow
+        case .denied: return .openSettings
+        }
+    }
+
+    /// Runs only from the card's button, so any Calendar prompt follows the user's click.
+    private func resolveCalendarPrompt() {
+        switch calendarPrompt {
+        case .turnOn:
+            settings.showCalendar = true
+            if calendar.access == .notAsked { calendar.requestAccess() }
+        case .allow:
+            calendar.requestAccess()
+        case .openSettings:
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars")!)
+        case nil:
+            break
+        }
     }
 }

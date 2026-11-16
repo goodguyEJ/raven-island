@@ -185,6 +185,9 @@ enum Snapshot {
             ("20b-record-spotify", notch, idle(playing, [], label: nil, agendaOn: false), true, true),
             ("20c-record-music", notch, idle(paused, [], label: nil, agendaOn: false), true, true),
             ("21c-week-empty-today", notch, idle(nil, tomorrowOnly, label: nil, agendaOn: true), true, true),
+            ("22-calendar-placeholder-off", notch, idle(playing, [], label: nil, agendaOn: false), true, true),
+            ("22b-calendar-placeholder-allow", notch, idle(playing, [], label: nil, agendaOn: false), true, true),
+            ("22c-calendar-placeholder-denied", notch, idle(playing, [], label: nil, agendaOn: false), true, true),
         ]
         for (name, base, home, expanded, allowed) in cases {
             var g = base
@@ -200,7 +203,9 @@ enum Snapshot {
                 NotchContentView(sessions: [], expanded: expanded, geometry: g, animated: name.hasPrefix("18") && !name.hasPrefix("18b"),
                                  characters: name.hasPrefix("18") && !name.hasPrefix("18d"),
                                  nowPlaying: track, artwork: art, tint: art.flatMap(MusicSource.tint(of:)), controlsAllowed: allowed,
-                                 agenda: home.agendaOn ? agenda : [])
+                                 agenda: home.agendaOn ? agenda : [],
+                                 calendarPrompt: name.hasPrefix("22b") ? .allow : name.hasPrefix("22c") ? .openSettings
+                                     : name.hasPrefix("22") ? .turnOn : nil)
                     .padding(.top, g.topOffset + (g.hasNotch ? 0 : 7))
             }
             .frame(width: 680, height: expanded ? g.expandedSize(sessionCount: 0).height + g.topOffset + 70 : 90)

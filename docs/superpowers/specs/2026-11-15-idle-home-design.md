@@ -542,7 +542,9 @@ only; no code or assets.
 - Badge: the playing app's icon (Spotify or Music) at about 18pt, inset 3pt from the lower-left
   corner, with a 1.5pt black ring. Shown on artwork and on the record. If macOS has no icon for
   the app, no badge.
-- Tint: computed once per artwork image. Without artwork the tint is white, as today. The tint
+- Tint: computed once per artwork image. Without artwork the player's colour (Spotify green,
+  Music red) is used instead, matching the record (owner feedback: the panel read too bland).
+  The elapsed time takes the tint in semibold; the remaining time stays dim. The tint
   is never darker than a minimum brightness and never fully grey (a floor on saturation only
   when the average has a hue), so text stays readable on black. Title stays white.
 - Record: same size and corner radius box as the artwork. A near-black disc with three faint

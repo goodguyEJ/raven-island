@@ -346,7 +346,9 @@ Design: [superpowers/specs/2026-11-15-idle-home-design.md](superpowers/specs/202
   spinning record when there is no art; on the right month and year and a strip of six days
   (two before today, three after; today in a blue circle). Clicking a day lists its events
   (two rows and "+N more") or "No events today / Enjoy your free time!". The calendar side
-  counts as content when any of the six days has an event. Fixed 96 pt area.
+  counts as content when any of the six days has an event. Fixed 96 pt area. When the
+  calendar is switched off or not allowed, a small card takes its place beside the music with
+  the one step that fixes it (Turn On, Allow, or Open Settings); any prompt follows that click.
 - With sessions running: a mini player in the header (scrolling name, play/pause), never while
   a decision is waiting and never changing the panel's size.
 - The panel's Settings button closes the panel first so Settings opens in front; while a

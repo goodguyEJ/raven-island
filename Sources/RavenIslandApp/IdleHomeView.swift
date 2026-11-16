@@ -94,21 +94,29 @@ struct IdleHomePanel: View {
     var onMusic: (MusicCommand) -> Void
     var onOpenPlayer: () -> Void
     var onOpenCalendar: () -> Void
+    var calendarPrompt: CalendarPrompt? = nil
+    var onCalendarPrompt: () -> Void = {}
 
     private var track: NowPlaying? { idleHome.hasTrack ? nowPlaying : nil }
+    /// Without artwork to take a colour from, the record's player colour carries through instead.
+    private var accent: Color? { tint ?? (artwork == nil ? track.map { SpinningRecord.color(for: $0.app) } : nil) }
+    /// Without the calendar the music half would sit beside an empty space.
+    private var prompt: CalendarPrompt? { track != nil && !idleHome.showsAgendaHalf ? calendarPrompt : nil }
 
     var body: some View {
         HStack(spacing: 0) {
             if let track {
                 musicHalf(track).frame(maxWidth: .infinity, alignment: .leading)
             }
-            if track != nil, idleHome.showsAgendaHalf {
+            if track != nil, idleHome.showsAgendaHalf || prompt != nil {
                 Rectangle().fill(.white.opacity(0.12)).frame(width: 1, height: NotchGeometry.idleHomeHeight - 28)
                     .padding(.horizontal, 14)
             }
             if idleHome.showsAgendaHalf {
                 agendaHalf.frame(width: track == nil ? nil : width * 0.4, alignment: .leading)
                     .frame(maxWidth: track == nil ? .infinity : nil, alignment: .leading)
+            } else if let prompt {
+                CalendarPromptCard(prompt: prompt, action: onCalendarPrompt).frame(width: width * 0.4)
             }
         }
         .frame(width: width, height: NotchGeometry.idleHomeHeight)
@@ -136,7 +144,7 @@ struct IdleHomePanel: View {
                         .font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
                     if !track.artist.isEmpty {
                         Text(TextSafety.visible(track.artist))
-                            .font(.system(size: 11.5)).foregroundStyle(tint ?? .white.opacity(0.58))
+                            .font(.system(size: 11.5)).foregroundStyle(accent ?? .white.opacity(0.58))
                     }
                 }
                 .lineLimit(1).truncationMode(.tail)
@@ -180,10 +188,12 @@ struct IdleHomePanel: View {
         let fraction = duration > 0 ? position / duration : 0
         return HStack(spacing: 7) {
             Text(Self.clock(position))
+                .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
+                .foregroundStyle(accent ?? .white.opacity(0.9))
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule().fill(.white.opacity(0.15))
-                    Capsule().fill(tint ?? .white.opacity(0.75)).frame(width: proxy.size.width * fraction)
+                    Capsule().fill(accent ?? .white.opacity(0.75)).frame(width: proxy.size.width * fraction)
                 }
             }
             .frame(height: 3)
@@ -191,9 +201,9 @@ struct IdleHomePanel: View {
             .accessibilityLabel("Progress")
             .accessibilityValue("\(Int((fraction * 100).rounded())) percent")
             Text("-" + Self.clock(max(0, duration - position)))
+                .font(.system(size: 10.5).monospacedDigit())
+                .foregroundStyle(.white.opacity(0.45))
         }
-        .font(.system(size: 10.5).monospacedDigit())
-        .foregroundStyle(.white.opacity(0.55))
         .frame(maxWidth: 220)
     }
 
@@ -210,7 +220,7 @@ struct AgendaWeekView: View {
     var selectedOverride: Date? = nil
     @State private var picked: (day: Date, today: Date)?
 
-    private static let todayBlue = Color(red: 0.04, green: 0.52, blue: 1)
+    static let todayBlue = Color(red: 0.04, green: 0.52, blue: 1)
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -403,10 +413,12 @@ struct SpinningRecord: View {
     @State private var angle: Double = 0
     @State private var startedAt: Date?
 
-    private var label: Color {
+    static func color(for app: MusicApp) -> Color {
         app == .spotify ? Color(red: 0x1D / 255.0, green: 0xB9 / 255.0, blue: 0x54 / 255.0)
                         : Color(red: 0xFA / 255.0, green: 0x2D / 255.0, blue: 0x48 / 255.0)
     }
+
+    private var label: Color { Self.color(for: app) }
 
     var body: some View {
         Group {
@@ -459,5 +471,56 @@ enum PlayerBadge {
         let icon = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.bundleID).map { NSWorkspace.shared.icon(forFile: $0.path) }
         cache[app] = icon
         return icon
+    }
+}
+
+/// Why the calendar side is missing, and the one step that fixes it.
+enum CalendarPrompt: Equatable {
+    case turnOn, allow, openSettings
+
+    /// The words before and after "Calendar", which the card sets in bold.
+    var message: (String, String) {
+        switch self {
+        case .turnOn: return ("Turn on ", " to see your week here.")
+        case .allow: return ("Allow ", " access to see your week here.")
+        case .openSettings: return ("", " access is off in System Settings.")
+        }
+    }
+
+    var button: String {
+        switch self {
+        case .turnOn: return "Turn On"
+        case .allow: return "Allow"
+        case .openSettings: return "Open Settings"
+        }
+    }
+}
+
+struct CalendarPromptCard: View {
+    var prompt: CalendarPrompt
+    var action: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "calendar.badge.plus").font(.system(size: 22)).foregroundStyle(.white.opacity(0.6))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 6) {
+                (Text(prompt.message.0).foregroundStyle(.white.opacity(0.65))
+                    + Text("Calendar").fontWeight(.bold).foregroundStyle(.white)
+                    + Text(prompt.message.1).foregroundStyle(.white.opacity(0.65)))
+                    .font(.system(size: 11.5))
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(action: action) {
+                    Text(prompt.button).font(.system(size: 11, weight: .bold))
+                        .padding(.horizontal, 12).padding(.vertical, 4)
+                        .background(Capsule().fill(AgendaWeekView.todayBlue))
+                        .foregroundStyle(.white)
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxHeight: .infinity)
     }
 }
