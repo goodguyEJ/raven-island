@@ -54,10 +54,11 @@ final class NotchController {
     private var hasPending: Bool { cardHeight > 0 }
     private var collapseWork: DispatchWorkItem?
     private var shrinkWork: DispatchWorkItem?
+    private var resizeWork: DispatchWorkItem?
+    private var resizeTarget = CGRect.zero
     /// After the gear closes the panel under the pointer, hover stays off until the pointer leaves.
     private var suppressHover = false
 
-    /// Phase 4 hooks this up to jump to the session's terminal.
     var onSelect: (Session) -> Void = { _ in }
     /// A rect asks for Settings to open below the panel, which a waiting decision keeps open.
     var onOpenSettings: (CGRect?) -> Void = { _ in }
@@ -129,9 +130,7 @@ final class NotchController {
         state.$showAll.dropFirst().removeDuplicates().receive(on: RunLoop.main)
             .sink { [weak self] showAll in
                 guard let self else { return }
-                // Growing: make room first. Shrinking: let the shape finish animating, or its bottom is cut off.
-                if showAll { self.applyFrame() }
-                else { DispatchQueue.main.asyncAfter(deadline: .now() + self.settle) { self.applyFrame() } }
+                self.resizeWindow()
             }
             .store(in: &subscriptions)
         // Delivered on the next pass of the run loop, after the published values have changed.
@@ -166,17 +165,31 @@ final class NotchController {
     private func idleHomeChanged() {
         let idle = idleHome()
         guard idle != state.geometry.idleHome else { return }
-        let before = currentSize()
         state.geometry.idleHome = idle
         // With sessions or a decision showing, the idle home is not on screen; leave the frame alone.
         guard sessionCount == 0, !hasPending else { return }
-        let after = currentSize()
-        // Shrinking while open: let the shape finish animating, or its bottom is cut off.
-        if state.expanded, after.height < before.height {
-            DispatchQueue.main.asyncAfter(deadline: .now() + settle) { [weak self] in self?.applyFrame() }
-        } else {
+        resizeWindow()
+    }
+
+    /// Growing: make room at once. Shrinking while open: let the shape finish animating, or its
+    /// bottom is cut off. A further shrink before then restarts the wait.
+    private func resizeWindow() {
+        let target = state.geometry.frame(for: currentSize())
+        guard state.expanded, target.height < panel.frame.height else {
+            resizeWork?.cancel()
+            resizeWork = nil
             applyFrame()
+            return
         }
+        if resizeWork != nil, target == resizeTarget { return }
+        resizeWork?.cancel()
+        resizeTarget = target
+        let work = DispatchWorkItem { [weak self] in
+            self?.resizeWork = nil
+            self?.applyFrame()
+        }
+        resizeWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + settle, execute: work)
     }
 
     private func currentSize() -> CGSize {
@@ -188,7 +201,7 @@ final class NotchController {
     private func sessionsChanged(_ sessions: [Session]) {
         sessionCount = sessions.count
         let attention = sessions.filter { $0.state.needsAttention }.count
-        applyFrame()
+        resizeWindow()
         if attention > lastAttention, settings.autoExpand {
             // Something new needs the user: open up, then tuck away again unless they're looking at it.
             expand()
@@ -208,9 +221,9 @@ final class NotchController {
         queuedCount = max(0, pending.count - 1)
         if hasPending {
             expand()
-            applyFrame()
+            resizeWindow()
         } else {
-            applyFrame()
+            resizeWindow()
             if !hovering { scheduleCollapse(after: 0.8) }
         }
     }
@@ -218,7 +231,8 @@ final class NotchController {
     /// The window is exactly the size of the shape, so everything outside it stays clickable.
     /// While a collapse animation is running the window keeps the expanded size.
     private func applyFrame() {
-        panel.setFrame(state.geometry.frame(for: currentSize()), display: true)
+        let frame = state.geometry.frame(for: currentSize())
+        if frame != panel.frame { panel.setFrame(frame, display: true) }
     }
 
     private func openSettingsFromPanel() {

@@ -86,7 +86,6 @@ public struct Reply: Codable, Equatable, Sendable {
     }
 }
 
-/// Events for which the bridge waits for a reply.
 /// Internal requests from the `ravenisland-bridge` CLI to the app (not hook events).
 public enum ControlEvent {
     public static let agent = "ravenisland"
@@ -97,6 +96,7 @@ public enum ControlEvent {
     public static let diagnostics = "diagnostics"
 }
 
+/// Events for which the bridge waits for a reply.
 public enum BlockingEvents {
     public static func isBlocking(event: String, payload: JSONValue) -> Bool {
         if event == "PermissionRequest" { return true }

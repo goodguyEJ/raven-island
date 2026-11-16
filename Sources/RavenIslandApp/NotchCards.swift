@@ -170,6 +170,7 @@ struct RequestCard: View {
     /// Other requests queued behind this one.
     var more: Int
     var live: Bool
+    var animated = true
     var onDecision: (Decision) -> Void
     /// Called once everything on the card has been scrolled into view.
     var onReviewed: () -> Void = {}
@@ -223,7 +224,7 @@ struct RequestCard: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 8) {
-                StatusGlyph(state: request.kind == .question ? .waitingForInput : .needsApproval, size: 15, animated: live)
+                StatusGlyph(state: request.kind == .question ? .waitingForInput : .needsApproval, size: 15, animated: animated)
                 Text(TextSafety.visible(request.title)).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
                 Spacer(minLength: 4)
                 if more > 0 {

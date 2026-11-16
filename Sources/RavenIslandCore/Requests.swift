@@ -197,7 +197,6 @@ extension PendingRequest {
         }
     }
 
-    /// All the text a reviewer has to read for this request.
     /// Everything the card shows for this request, so the length check covers every field.
     var reviewText: String {
         var parts = [cwd ?? ""]

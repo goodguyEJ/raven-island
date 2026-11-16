@@ -34,11 +34,8 @@ final class AppModel: ObservableObject {
     /// Clear a finished session when the user jumps to it (they have seen it).
     var clearOnJump = true
 
-    @Published private(set) var finishedCount = 0
-
     private func publishSessions() {
         sessions = store.sorted
-        finishedCount = store.finishedCount
     }
 
     /// The row's check button. A session with a decision waiting stays listed until it's answered.
@@ -66,16 +63,27 @@ final class AppModel: ObservableObject {
     private var connections: [String: BlockingConnection] = [:]
     private var reapTimer: Timer?
 
-    var attentionCount: Int { store.attentionCount }
-
     func start() {
         refreshHookStatus()
         reapTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.reap() }
         }
         reapTimer?.tolerance = 5
-        // Heartbeat for waiting requests. Sent from the main thread, so a hung app stops sending and
-        // every waiting helper falls back to Claude Code's own prompt within a few seconds.
+        prepareHelper()
+    }
+
+    private var heartbeatTimer: Timer?
+
+    /// Heartbeat for waiting requests, running only while there are any. Sent from the main thread, so
+    /// a hung app stops sending and every waiting helper falls back to Claude Code's own prompt within
+    /// a few seconds.
+    private func updateHeartbeat() {
+        if pending.isEmpty {
+            heartbeatTimer?.invalidate()
+            heartbeatTimer = nil
+            return
+        }
+        guard heartbeatTimer == nil else { return }
         let heartbeat = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
@@ -87,10 +95,7 @@ final class AppModel: ObservableObject {
         // back to the terminal mid-read.
         RunLoop.main.add(heartbeat, forMode: .common)
         heartbeatTimer = heartbeat
-        prepareHelper()
     }
-
-    private var heartbeatTimer: Timer?
 
     /// Records this app as the helper's trusted peer, and refreshes an installed helper that is out of
     /// date with the one in this app bundle. Never installs a helper the user hasn't installed.
@@ -128,10 +133,9 @@ final class AppModel: ObservableObject {
         }
         reviewed.formIntersection(Set(pending.map(\.id)))
         editing.formIntersection(Set(pending.map(\.id)))
+        updateHeartbeat()
     }
 
-    /// The request a keyboard shortcut may act on right now, if any: it has to be the card on
-    /// screen, shown long enough to have been seen, and (to allow) fully reviewed.
     /// Requests whose card has a note field open: shortcuts must not act while the user types.
     private var editing: Set<String> = []
 
@@ -139,6 +143,8 @@ final class AppModel: ObservableObject {
         if on { editing.insert(id) } else { editing.remove(id) }
     }
 
+    /// The request a keyboard shortcut may act on right now, if any: it has to be the card on
+    /// screen, shown long enough to have been seen, and (to allow) fully reviewed.
     func shortcutTarget(allowing: Bool) -> PendingRequest? {
         guard let front = pending.first, front.id == frontID, !editing.contains(front.id),
               Date().timeIntervalSince(frontSince) >= Self.armingDelay else { return nil }

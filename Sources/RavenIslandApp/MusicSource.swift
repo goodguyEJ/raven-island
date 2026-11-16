@@ -31,6 +31,7 @@ final class MusicSource: ObservableObject {
     private var board = NowPlayingBoard()
     private var subscriptions = Set<AnyCancellable>()
     private var artworkKey: String?
+    private var artworkNeedsGrant = false
     private let playerObserver = PlayerNotificationObserver()
     private nonisolated static let session: URLSession = {
         let config = URLSessionConfiguration.ephemeral
@@ -78,7 +79,15 @@ final class MusicSource: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async {
             // Long enough for the user to answer the Automation prompt the first click brings up.
             let ok = Jumper.run("/usr/bin/osascript", ["-e", script], timeout: 60) != nil
-            DispatchQueue.main.async { [weak self] in self?.controlsAllowed = ok }
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.controlsAllowed = ok
+                // The click may just have granted Automation, which the artwork was waiting for.
+                if ok, self.artworkNeedsGrant {
+                    self.artworkKey = nil
+                    self.publish()
+                }
+            }
         }
     }
 
@@ -150,12 +159,18 @@ final class MusicSource: ObservableObject {
         let key = nowPlaying.map { "\($0.app.rawValue)|\($0.trackID ?? $0.title)" }
         guard key != artworkKey else { return }
         artworkKey = key
+        artworkNeedsGrant = false
         artwork = nil
         tint = nil
         guard let app = nowPlaying?.app, let key, Self.isRunning(app) else { return }
         if app == .spotify, !spotifyArtwork { return }
         Task.detached(priority: .utility) {
-            guard Self.automationGranted(app) else { return }
+            guard Self.automationGranted(app) else {
+                await MainActor.run { [weak self] in
+                    if self?.artworkKey == key { self?.artworkNeedsGrant = true }
+                }
+                return
+            }
             let data = app == .appleMusic ? Self.musicArtwork() : await Self.spotifyArtwork()
             await MainActor.run { [weak self] in
                 guard let self, self.artworkKey == key, let data else { return }

@@ -54,7 +54,7 @@ needs a person at the screen to confirm the behaviour.
 | 7 | The Settings "Install" button rewrote settings without installing the helper, leaving hooks that silently did nothing | **Fixed, built.** It copies the helper first and refuses to continue without it. |
 | 8 | Installing replaced a symlinked `settings.json` (a dotfiles setup) with a regular file | **Fixed, verified.** The link is kept and the real file is updated. |
 | 9 | Markdown links in agent-written plan text could be clickable under a misleading label | **Fixed, built.** Plan text is rendered with links removed. |
-| 10 | Several features had never run against a real session | **Partly.** The request queue, fallbacks, and limits now have end-to-end tests. Question and plan cards, real usage numbers, and some terminal jumps still need live confirmation. |
+| 10 | Several features had never run against a real session | **Partly.** The request queue, fallbacks, and limits now have end-to-end tests. Question and plan cards and some terminal jumps still need live confirmation. |
 
 ### Low
 
@@ -91,7 +91,7 @@ app, and every fix below has an automated end-to-end check (`scripts/e2e.py`, 28
 |---|---|---|---|
 | R2-1 | The helper trusted whatever process was listening on the socket. A local process that replaced the socket file could approve requests and add a blanket "allow every shell command" rule, with no card shown (reproduced) | High | **Fixed, verified.** The helper checks the process on the other end is the app executable recorded at launch, and sends it nothing otherwise. Every answer is checked against the exact shape Raven Island produces: only allow or deny, no rewritten input, and permission rules only if the request itself offered them. |
 | R2-2 | After the card appeared, a hung app blocked the session for up to 24 hours (reproduced) | High | **Fixed, verified.** The app sends a heartbeat every second from its main thread while a card is up; the helper falls back to Claude Code's own prompt after 3 seconds of silence. It also stops waiting if Claude Code goes away. |
-| R2-3 | A forged usage report with an absurd reset time crashed the app on every launch (reproduced) | High | **Fixed, verified.** Reset times outside a sane window are ignored, and the countdown cannot trap. |
+| R2-3 | A forged usage report with an absurd reset time crashed the app on every launch (reproduced) | High | **Fixed, verified.** Reset times outside a sane window are ignored, and the countdown cannot trap. (The usage feature has since been removed.) |
 | R2-4 | Large tool results added 0.25–1.2 s to every tool call and doubled the app's memory (measured) | High | **Fixed, verified.** Tool output is dropped before anything else and JSON is parsed with Foundation's fast parser: 20,000 search matches now cost 15 ms (was 244 ms), 100,000 cost 51 ms (was 1.2 s), and memory stays flat. |
 | R2-5 | Cards still cut the working directory, file path, and "Always allow" rule; the length check ignored extra fields; ⌃⌥Y worked while typing a deny note | High | **Fixed, built.** All shown in full inside the scrolling area; the length check covers every field; shortcuts are off while a note field is open. |
 | R2-6 | Cards for sessions whose process died stayed forever, pinning the panel and the shortcuts | High | **Fixed, built.** Waiting requests are finished when their session is cleaned up. The hook command now uses `exec`, so the helper ends with the hook. |
@@ -155,8 +155,8 @@ unchanged by design and covered by the existing end-to-end suite, not re-reviewe
 - "Always allow" applies only explicit allow rules, never mode changes or folder grants.
 - The installer refuses invalid JSON, backs up first, is idempotent, and uninstall
   restores the original content (the same settings; keys are re-sorted).
-- Nothing a session says or runs is written to disk. Only preferences and usage
-  percentages persist. The diagnostics report contains no prompts, commands, or paths.
+- Nothing a session says or runs is written to disk. Only preferences persist. The
+  diagnostics report contains no prompts, commands, or paths.
   The app makes no network connections (since the idle home: except Spotify album art, when
   switched on).
 

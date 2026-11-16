@@ -124,13 +124,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             setup?.isHidden = self?.model.isConnected ?? true
         }.store(in: &subscriptions)
 
-        model.$sessions.receive(on: RunLoop.main).sink { [weak self, weak summary] sessions in
-            guard let self else { return }
+        model.$sessions.receive(on: RunLoop.main).sink { [weak summary] sessions in
             let attention = sessions.filter { $0.state.needsAttention }.count
             item.button?.title = attention > 0 ? " \(attention)" : ""
             summary?.title = sessions.isEmpty ? "No sessions"
                 : "\(sessions.count) session\(sessions.count == 1 ? "" : "s")" + (attention > 0 ? ", \(attention) need you" : "")
-            _ = self
         }.store(in: &subscriptions)
     }
 
