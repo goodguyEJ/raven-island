@@ -32,9 +32,8 @@ Claude Code session ──hook──▶ ravenisland-bridge ──unix socket─�
         ▲                         │                          ├─ SessionStore (state machine)
         └──── decision JSON ◀─────┘                          ├─ NotchWindow (AppKit panel + SwiftUI)
                                                              ├─ ApprovalQueue
-Claude Code status line ──▶ ravenisland-bridge statusline ──socket──▶     ├─ Jumper (per terminal)
-                              └─▶ user's previous status line├─ SoundEngine
-                                                             ├─ UsageStore
+                                                             ├─ Jumper (per terminal)
+                                                             ├─ SoundEngine
                                                              └─ Notifiers (phone)
 ```
 
@@ -46,8 +45,9 @@ Claude Code status line ──▶ ravenisland-bridge statusline ──socket─�
   (it runs on every tool call) and must never break the agent: on any error, or if the
   app is not running, it exits 0 with no output, which leaves Claude Code's normal
   behaviour in place.
-- **ravenisland-bridge statusline** — wraps the status line slot to capture usage data (F7), then
-  runs the previously configured status line so its output is unchanged.
+- **ravenisland-bridge statusline** — kept for installs from versions that showed usage, which put
+  it in the status line slot: it only runs the status line that was there before. Install and
+  uninstall put that status line back.
 - **Transport** — Unix domain socket at `~/.ravenisland/ravenisland.sock`, mode `0600`. Local only;
   no network listener.
 
@@ -172,7 +172,8 @@ Each feature lists what "done" means.
 
 ### F2. Notch panel
 - Collapsed: sits flush around the notch; shows an aggregate glyph (colour and motion by
-  the most urgent state) and session count.
+  the most urgent state) and the time, coloured by time of day. An optional setting has the
+  time give way to the date (MM/DD) and battery percent for 3 s each every 15 s.
 - Expands on hover or click; collapses on mouse-out after a delay. (No Escape key: the
   panel never holds keyboard focus, and a system-wide Escape shortcut would break other apps.)
 - Auto-expands when a session needs approval or input (configurable).
@@ -230,21 +231,11 @@ Each feature lists what "done" means.
 - Only values matching a strict device-path or pane-id pattern are put into a script.
 - Later: user-defined jump rules (pattern → URL scheme or command).
 
-### F7. Usage
-- A strip at the bottom of the expanded panel shows the 5-hour and weekly subscription
-  windows: a segmented bar, percent used, and time to reset. Orange from 75%, red from 90%.
-- Source: the status line command's stdin, fields `rate_limits.five_hour.used_percentage`,
-  `rate_limits.five_hour.resets_at` (epoch seconds), and the same under
-  `rate_limits.seven_day`. Present only on subscription plans, only after the first
-  response of a session, and either window may be missing; the strip shows what it has
-  and hides when it has nothing.
-- `ravenisland-bridge statusline` is installed as the status line command. It forwards the
-  usage to the app, then runs the status line that was configured before (remembered in
-  `~/.ravenisland/previous-statusline.json`) with the same input and passes its output through,
-  so the visible status line is unchanged. Uninstall puts the previous command back.
-- The last report is kept across relaunches; a window whose reset time has passed is dropped.
-- Status lines are drawn by terminal sessions, so numbers appear after the first
-  response in a terminal Claude Code session.
+### F7. Usage (removed)
+- Earlier versions showed the 5-hour and weekly subscription windows, read from Claude Code's
+  status line. Removed: the status line only carries numbers from terminal sessions, and only
+  as fresh as each session's last reply, so the strip was often out of date. Install now gives
+  back a status line those versions borrowed.
 
 ### F8. Sounds
 - Distinct short synthesized tones for: needs approval, question, done, error. Played
@@ -318,8 +309,8 @@ Each feature lists what "done" means.
   rate as before.
 - While Spotify or Music is playing, every raven in the panel wears headphones over whatever
   it is doing.
-- With nothing running, two of the flock walk beside the notch (a different pair each
-  hour), and the expanded panel shows the whole flock. Pointing at one makes it
+- With nothing running, one of the flock walks beside the notch (a different one each hour),
+  stopping every 45 s to face you and wave, and the expanded panel shows the whole flock. Pointing at one makes it
   stop, hop, and do its party trick, with its name and motto underneath.
 - Settings: characters on or off (off brings back plain status icons), and strolling by
   the notch on or off. Everything is still when Reduce Motion is on.
@@ -339,8 +330,8 @@ Design: [superpowers/specs/2026-11-15-idle-home-design.md](superpowers/specs/202
   on calendar changes, wake, and the next boundary (an hour before a start, a start, an end,
   midnight); no polling.
 - Collapsed: on the left, the hour's raven in headphones, bobbing while playing (artwork and
-  bars when characters are off); on the right the next event's start time from 60 minutes
-  before, or "now". A wing with nothing to show keeps its raven when strolling is on. Open:
+  bars when characters are off); on the right the time (on displays without a notch,
+  the next event's start time from 60 minutes before, or "now"). Open:
   track with large controls, elapsed and remaining time on the left, the artist and progress
   bar tinted from the artwork, the player's own icon (from macOS) on the art's lower-left, and a
   spinning record when there is no art; on the right month and year and a strip of six days

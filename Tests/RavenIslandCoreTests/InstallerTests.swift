@@ -53,10 +53,10 @@ import Testing
         #expect(status.isFullyInstalled)
         #expect(status.installed.count == Installer.events.count)
         #expect(status.otherPermissionHooks == ["/opt/other/tool-bridge --x"])
-        // The status line slot is ours now, and the previous command is remembered for chaining.
-        #expect(status.statusLineInstalled)
-        let remembered = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: previous)) as? [String: Any])
-        #expect(remembered["command"] as? String == "/usr/local/bin/other-statusline")
+        // The status line is the user's and stays that way.
+        #expect(!status.statusLineInstalled)
+        #expect(status.statusLine == "/usr/local/bin/other-statusline")
+        #expect(!FileManager.default.fileExists(atPath: previous.path))
 
         // Blocking hooks (permission requests, and questions via PreToolUse) carry the long timeout.
         for event in ["PermissionRequest", "PreToolUse"] {
@@ -100,34 +100,37 @@ import Testing
         #expect(try read().isEmpty)
     }
 
-    @Test func statusLineCanBeLeftAlone() throws {
-        try write(Self.existing)
-        try installer().install(statusLine: false)
-        let status = try installer().status()
-        #expect(status.isFullyInstalled)
-        #expect(!status.statusLineInstalled)
-        #expect(status.statusLine == "/usr/local/bin/other-statusline")
-        #expect(!FileManager.default.fileExists(atPath: previous.path))
-    }
-
-    @Test func statusLineWithNothingBefore() throws {
+    @Test func installAddsNoStatusLine() throws {
         try write(#"{"model":"opus"}"#)
         try installer().install()
-        #expect(try installer().status().statusLineInstalled)
-        #expect(!FileManager.default.fileExists(atPath: previous.path))
-        try installer().uninstall()
         #expect(try read()["statusLine"] == nil)
-        #expect(try read()["model"] as? String == "opus")
+        #expect(try installer().status().isFullyInstalled)
     }
 
-    @Test func reinstallKeepsTheRememberedStatusLine() throws {
-        try write(Self.existing)
+    /// Versions that showed usage ran their helper in the status line slot; install gives the slot back.
+    @Test func installGivesBackTheStatusLineAnOlderVersionTook() throws {
+        try write(#"{"statusLine":{"type":"command","command":"B=\"$HOME/.ravenisland/bin/ravenisland-bridge\"; [ -x \"$B\" ] && exec \"$B\" statusline 2>/dev/null; exit 0","refreshInterval":15}}"#)
+        try Data(#"{"type":"command","command":"bash ~/line.sh","refreshInterval":15}"#.utf8).write(to: previous)
+        #expect(try installer().install().changed)
+        let line = try #require(try read()["statusLine"] as? [String: Any])
+        #expect(line["command"] as? String == "bash ~/line.sh")
+        #expect(line["refreshInterval"] as? Int == 15)
+        #expect(!FileManager.default.fileExists(atPath: previous.path))
+        #expect(try !installer().install().changed)
+    }
+
+    /// Installing into another settings file must not lose what the main one still needs to give back.
+    @Test func installKeepsTheRememberedStatusLineWhenItGivesNothingBack() throws {
+        try write(#"{"model":"opus"}"#)
+        try Data(#"{"type":"command","command":"bash ~/line.sh"}"#.utf8).write(to: previous)
+        #expect(try installer().install().changed)
+        #expect(FileManager.default.fileExists(atPath: previous.path))
+    }
+
+    @Test func installClearsTheSlotAnOlderVersionTookWhenNothingWasThere() throws {
+        try write(#"{"statusLine":{"type":"command","command":"\"$HOME/.ravenisland/bin/ravenisland-bridge\" statusline 2>/dev/null || true"}}"#)
         try installer().install()
-        try installer().uninstall()
-        try installer().install()
-        try installer().install()
-        let remembered = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: previous)) as? [String: Any])
-        #expect(remembered["command"] as? String == "/usr/local/bin/other-statusline")   // never overwritten with our own
+        #expect(try read()["statusLine"] == nil)
     }
 
     @Test func invalidJSONIsLeftUntouched() throws {
@@ -141,7 +144,7 @@ import Testing
 
     @Test func olderEntryWithoutTimeoutIsReplaced() throws {
         try write(#"{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"\"$HOME/.ravenisland/bin/ravenisland-bridge\" hook claude 2>/dev/null || true"}]}]}}"#)
-        try installer().install(statusLine: false)
+        try installer().install()
         let groups = try #require((try read()["hooks"] as? [String: Any])?["PreToolUse"] as? [[String: Any]])
         #expect(groups.count == 1)
         #expect(((groups[0]["hooks"] as? [[String: Any]])?.first?["timeout"] as? Int) == 86_400)
@@ -170,7 +173,7 @@ import Testing
 
     @Test func otherCommandsSharingOurGroupSurvive() throws {
         try write(#"{"hooks":{"Stop":[{"matcher":"x","hooks":[{"type":"command","command":"~/.ravenisland/bin/ravenisland-bridge hook claude"},{"type":"command","command":"say done"}]}]}}"#)
-        try installer().install(statusLine: false)
+        try installer().install()
         try installer().uninstall()
         let stop = try #require((try read()["hooks"] as? [String: Any])?["Stop"] as? [[String: Any]])
         #expect(stop.count == 1)
@@ -181,7 +184,7 @@ import Testing
     @Test func oldBackupsArePruned() throws {
         try write(Self.existing)
         for i in 0..<8 {
-            try installer().install(statusLine: false, now: Date(timeIntervalSince1970: 1_800_000_000 + Double(i) * 60))
+            try installer().install(now: Date(timeIntervalSince1970: 1_800_000_000 + Double(i) * 60))
             try installer().uninstall(now: Date(timeIntervalSince1970: 1_800_000_030 + Double(i) * 60))
         }
         #expect(try backups().count == Installer.backupsKept)
@@ -198,26 +201,6 @@ import Testing
         try Installer.installBridge(from: source, to: dest)
         try Installer.installBridge(from: source, to: dest)   // replacing an existing copy works too
         #expect(FileManager.default.isExecutableFile(atPath: dest.path))
-    }
-
-    @Test func statusLineDisplayOptionsAreKept() throws {
-        try write(#"{"statusLine":{"type":"command","command":"bash ~/line.sh","refreshInterval":15,"padding":2}}"#)
-        try installer().install()
-        let line = try #require(try read()["statusLine"] as? [String: Any])
-        #expect((line["command"] as? String)?.contains(Installer.marker) == true)
-        #expect(line["refreshInterval"] as? Int == 15)
-        #expect(line["padding"] as? Int == 2)
-    }
-
-    @Test func olderStatusLineEntryIsUpgraded() throws {
-        try write(#"{"statusLine":{"type":"command","command":"\"$HOME/.ravenisland/bin/ravenisland-bridge\" statusline 2>/dev/null || true"}}"#)
-        try Data(#"{"type":"command","command":"bash ~/line.sh","refreshInterval":15}"#.utf8).write(to: previous)
-        let change = try installer().install()
-        #expect(change.changed)
-        let line = try #require(try read()["statusLine"] as? [String: Any])
-        #expect(line["command"] as? String == Installer.statusLineCommand)
-        #expect(line["refreshInterval"] as? Int == 15)
-        #expect(try !installer().install().changed)   // idempotent after the upgrade
     }
 
     @Test func upgradingFromTheEarlierNameLeavesNoDuplicates() throws {
@@ -238,14 +221,12 @@ import Testing
         #expect(commands.filter { $0.contains("crowsnest") }.isEmpty)
         #expect(commands.filter { $0.contains(Installer.marker) }.count == 1)
         #expect(commands.contains("say done"))
+        // The status line the earlier version took is given back.
         let line = try #require(root["statusLine"] as? [String: Any])
-        #expect(line["command"] as? String == Installer.statusLineCommand)
+        #expect(line["command"] as? String == "bash ~/line.sh")
         #expect(line["refreshInterval"] as? Int == 15)
-        let remembered = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: previous)) as? [String: Any])
-        #expect(remembered["command"] as? String == "bash ~/line.sh")
+        #expect(!FileManager.default.fileExists(atPath: previous.path))
         #expect(!FileManager.default.fileExists(atPath: legacy.path))
-        try installer().uninstall()
-        #expect(try read()["statusLine"].map { ($0 as? [String: Any])?["command"] as? String } == "bash ~/line.sh")
     }
 
     @Test func uninstallingAnOldInstallRestoresTheStatusLine() throws {

@@ -32,7 +32,7 @@ enum Diagnostics {
         lines.append("")
         lines.append("Settings:")
         lines.append("  autoExpand=\(settings.autoExpand) answersFromPanel=\(settings.answersFromPanel) shortcuts=\(settings.shortcutsEnabled)")
-        lines.append("  characters=\(settings.showCharacters) usage=\(settings.showUsage) display=\(settings.displayMode)")
+        lines.append("  characters=\(settings.showCharacters) display=\(settings.displayMode)")
         lines.append("  sounds=\(settings.soundsEnabled) volume=\(String(format: "%.2f", settings.volume)) pack=\(settings.soundPack == Settings.builtInPack ? "built-in" : "custom") quietHours=\(settings.quietHoursEnabled)")
         lines.append("  autoClearMinutes=\(settings.autoClearMinutes) clearOnJump=\(settings.clearOnJump)")
         lines.append("  launchAtLogin=\(settings.launchAtLogin)")
@@ -44,8 +44,6 @@ enum Diagnostics {
             let idle = Int(Date().timeIntervalSince(s.lastEventAt))
             lines.append("  \(s.id.prefix(8)) state=\(s.state.rawValue) agent=\(s.agent) term=\(s.context.termProgram ?? "-") tty=\(s.context.tty != nil) tmux=\(s.context.tmuxPane != nil) subagents=\(s.subagents) lastEvent=\(idle)s ago")
         }
-        lines.append("")
-        lines.append("Usage data: \(model.usage == nil ? "none" : "present")")
         lines.append("")
         lines.append("Recent events (newest last, names only):")
         let format = DateFormatter()

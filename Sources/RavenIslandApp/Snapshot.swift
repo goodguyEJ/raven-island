@@ -67,9 +67,6 @@ enum Snapshot {
         - Run the existing API test suite
         """)]))
 
-        let usage = UsageSnapshot(fiveHour: UsageWindow(usedPercent: 42, resetsAt: Date().addingTimeInterval(2 * 3600 + 13 * 60)),
-                                  sevenDay: UsageWindow(usedPercent: 81, resetsAt: Date().addingTimeInterval(3 * 86_400 + 4 * 3600)),
-                                  updatedAt: Date())
         writeSpriteSheet(to: out)
         writeSetupWindow(to: out)
 
@@ -98,8 +95,7 @@ enum Snapshot {
                 Rectangle().fill(.white.opacity(0.28)).frame(height: 37)   // stand-in menu bar
                 NotchContentView(sessions: sessions, expanded: expanded, geometry: g, animated: false,
                                  request: req, queued: more > 0 ? [edit, question].compactMap { $0 }.prefix(more).map { $0 } : [],
-                                 waitingSessionIDs: req.map { [$0.sessionID] } ?? [],
-                                 usage: expanded ? usage : nil)
+                                 waitingSessionIDs: req.map { [$0.sessionID] } ?? [])
                     .padding(.top, g.topOffset + (g.hasNotch ? 0 : 7))
             }
             .frame(width: 680, height: expanded ? g.expandedSize(sessionCount: sessions.count, cardHeight: req.map(RequestCard.height(for:)) ?? 0, focus: req != nil, queued: req == nil ? 0 : more).height + g.topOffset + 70 : 90)
@@ -126,7 +122,7 @@ enum Snapshot {
                 LinearGradient(colors: [Color(red: 0.36, green: 0.47, blue: 0.62), Color(red: 0.78, green: 0.72, blue: 0.66)],
                                startPoint: .top, endPoint: .bottom)
                 NotchContentView(sessions: sessions, expanded: true, geometry: notch, animated: false, request: req,
-                                 waitingSessionIDs: req.map { [$0.sessionID] } ?? [], usage: usage, nowPlaying: track)
+                                 waitingSessionIDs: req.map { [$0.sessionID] } ?? [], nowPlaying: track)
             }
             .frame(width: 680, height: notch.expandedSize(sessionCount: sessions.count, cardHeight: req.map(RequestCard.height(for:)) ?? 0,
                                                           focus: req != nil).height + 70)
@@ -230,7 +226,7 @@ enum Snapshot {
         func cell(_ frame: [String], _ p: Persona) -> some View {
             Canvas { context, size in PixelBot.draw(frame, persona: p, in: &context, size: size) }.frame(width: 90, height: 72)
         }
-        let columns = ["stand", "step", "trick", "trick", "think", "search", "run", "build", "ask", "wait", "done", "error", "listen", "paused"]
+        let columns = ["stand", "step", "trick", "trick", "think", "search", "run", "build", "ask", "wait", "done", "error", "listen", "paused", "face", "wave", "wave"]
         let view = VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Text("").frame(width: 92)
@@ -253,6 +249,7 @@ enum Snapshot {
                     cell(pick(p, .done, .building, 0), p); cell(pick(p, .error, .building, 0), p)
                     cell(PixelSprites.listeningFrames(persona: p, playing: true)[3], p)
                     cell(PixelSprites.listeningFrames(persona: p, playing: false)[0], p)
+                    ForEach(0..<3, id: \.self) { cell(PixelSprites.waveFrames(persona: p)[$0], p) }
                 }
             }
         }
@@ -269,9 +266,9 @@ enum Snapshot {
 }
 
 extension Snapshot {
-    /// The first-run setup window, as a new user would see it with an existing status line.
+    /// The first-run setup window, as a new user would see it.
     static func writeSetupWindow(to out: URL) {
-        let facts = SetupFacts(claudeCodeFound: true, otherApprovalTools: 0, currentStatusLine: "bash ~/statusline.sh")
+        let facts = SetupFacts(claudeCodeFound: true, otherApprovalTools: 0)
         let view = SetupView(model: AppModel(), settings: Settings(defaults: UserDefaults(suiteName: "ravenisland-snapshot")!),
                              facts: facts, close: {})
             .background(Color(nsColor: .windowBackgroundColor))

@@ -47,9 +47,8 @@ struct NotchGeometry: Equatable {
 
     /// Radius of the outward curves where the panel meets the top of the screen. Only when the
     /// panel hangs from the notch; the floating pill on other displays has ordinary corners.
-    /// None around a bare notch, where nothing shows beside it.
-    func earRadius(expanded: Bool, sessionCount: Int) -> CGFloat {
-        guard hasNotch, expanded || sessionCount > 0 || idleStroll || idleHome.hasCollapsedContent else { return 0 }
+    func earRadius(expanded: Bool) -> CGFloat {
+        guard hasNotch else { return 0 }
         return expanded ? 14 : 7
     }
 
@@ -57,8 +56,9 @@ struct NotchGeometry: Equatable {
 
     func collapsedSize(sessionCount: Int) -> CGSize {
         if hasNotch {
-            let body = notchWidth + (sessionCount > 0 || idleStroll || idleHome.hasCollapsedContent ? 2 * Self.wing : 0)
-            return CGSize(width: body + 2 * earRadius(expanded: false, sessionCount: sessionCount), height: notchHeight)
+            // The right wing always has the time, so the wings never fold away.
+            let body = notchWidth + 2 * Self.wing
+            return CGSize(width: body + 2 * earRadius(expanded: false), height: notchHeight + 1)
         }
         return CGSize(width: sessionCount > 0 ? 178 : (idleStroll || idleHome.hasCollapsedContent ? 96 : 44), height: Self.pillHeight)
     }
@@ -71,7 +71,7 @@ struct NotchGeometry: Equatable {
     /// `focus`: a decision is waiting and only its session is shown, with a "Show all" line under it.
     /// `queued`: decisions waiting behind the one on screen; they get an "Up next" line.
     func expandedSize(sessionCount: Int, cardHeight: CGFloat = 0, focus: Bool = false, queued: Int = 0) -> CGSize {
-        let width = max(Self.expandedWidth, notchWidth + 2 * Self.wing + 80) + 2 * earRadius(expanded: true, sessionCount: sessionCount)
+        let width = max(Self.expandedWidth, notchWidth + 2 * Self.wing + 80) + 2 * earRadius(expanded: true)
         let list: CGFloat
         if focus {
             list = Self.rowHeight + (sessionCount > 1 ? Self.pagerHeight : 0)

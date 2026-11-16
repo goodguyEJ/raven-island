@@ -302,6 +302,34 @@ extension PixelSprites {
                 strings(overlaying(bob, art(note, row: 2, column: 12)))]
     }
 
+    /// Turned to face us: the back half of the side-on drawing (crown, hat, folded wing) mirrored
+    /// across the middle column, then two eyes and a beak seen head-on. A glowing eye stays gold.
+    static func facing(_ p: Persona) -> [[Character]] {
+        var g = standing(p)
+        let middle = bodyWidth / 2
+        for r in 0..<size { for c in (middle + 1)..<bodyWidth { g[r][c] = g[r][bodyWidth - 1 - c] } }
+        let eye: Character = p.stand[4].contains("Y") ? "Y" : "W"
+        return overlaying(g, [(4, 3, eye), (4, 4, "K"), (4, 6, "K"), (4, 7, eye),
+                              (5, 4, "f"), (5, 5, "f"), (5, 6, "f"), (6, 5, "f")])
+    }
+
+    /// Headphones seen head-on: a cup either side of the head and the band over the crown.
+    static func frontHeadphones(_ body: [[Character]]) -> [[Character]] {
+        var g = overlaying(body, [(3, 1, "P"), (4, 1, "P"), (3, 9, "P"), (4, 9, "P")])
+        for (r, c) in [(2, 2), (2, 8)] where "BbF.".contains(g[r][c]) { g[r][c] = "P" }
+        return g
+    }
+
+    /// Facing us, then one wing raised and out: the view plays them as a wave.
+    public static func waveFrames(persona p: Persona, headphones wearing: Bool = false) -> [[String]] {
+        let front = wearing ? frontHeadphones(facing(p)) : facing(p)
+        var lowered = front
+        for (r, c) in [(9, 9), (10, 9), (11, 9), (11, 10), (12, 10)] { lowered[r][c] = "." }
+        let up = overlaying(lowered, [(8, 9, "B"), (7, 10, "B"), (6, 10, "B"), (5, 10, "B"), (4, 10, "F")])
+        let out = overlaying(lowered, [(8, 9, "B"), (7, 10, "B"), (6, 11, "B"), (5, 11, "B"), (4, 12, "F")])
+        return [front, up, out].map(strings)
+    }
+
     /// The raven's party trick, shown when the pointer is on it.
     public static func trickFrames(persona p: Persona, headphones wearing: Bool = false) -> [[String]] {
         let stand = wearing ? headphones(standing(p)) : standing(p)

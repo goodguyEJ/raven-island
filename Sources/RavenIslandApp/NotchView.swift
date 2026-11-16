@@ -12,9 +12,8 @@ struct SpinnerArc: View {
             .trim(from: 0.08, to: 0.78)
             .stroke(color, style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
             .rotationEffect(.degrees(turning ? 360 : 0))
-            .onAppear {
-                guard animated else { return }
-                withAnimation(.linear(duration: 0.9).repeatForever(autoreverses: false)) { turning = true }
+            .onChange(of: animated, initial: true) { _, animated in
+                if animated { withAnimation(Motion.spin) { turning = true } } else { turning = false }
             }
     }
 }
@@ -38,13 +37,12 @@ struct StatusGlyph: View {
                     .frame(width: size, height: size)
                     .foregroundStyle(state.color)
                     .opacity(state.needsAttention && pulsing ? 0.45 : 1)
-                    .onAppear {
-                        guard animated, state.needsAttention else { return }
-                        withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) { pulsing = true }
-                    }
             }
         }
         .frame(width: size, height: size)
+        .onChange(of: animated && state.needsAttention, initial: true) { _, pulse in
+            if pulse { withAnimation(Motion.pulse) { pulsing = true } } else { pulsing = false }
+        }
         .accessibilityLabel(state.label)
     }
 
@@ -69,6 +67,7 @@ struct SessionRow: View {
     var onDismiss: ((Session) -> Void)? = nil
     @State private var hovered = false
     @State private var checkHovered = false
+    @State private var doneBounces = 0
 
     var body: some View {
         HStack(spacing: 11) {
@@ -107,6 +106,8 @@ struct SessionRow: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text(session.state == .working ? session.workKind.label : session.state.label)
                     .font(.system(size: 11.5, weight: .medium)).foregroundStyle(session.state.color)
+                    .contentTransition(.opacity)
+                    .animation(Motion.fade, value: session.state)
                 Text(elapsed(since: session.stateSince, now: now))
                     .font(.system(size: 10.5).monospacedDigit())
                     .foregroundStyle(.white.opacity(0.45))
@@ -115,13 +116,15 @@ struct SessionRow: View {
             if let onDismiss {
                 Button { onDismiss(session) } label: {
                     Image(systemName: checkHovered ? "checkmark.circle.fill" : "checkmark.circle")
+                        .symbolEffect(.bounce, value: doneBounces)
                         .font(.system(size: 17))
                         .foregroundStyle(checkHovered ? Color.green : .white.opacity(session.state == .done ? 0.6 : 0.3))
                         .frame(width: 26, height: 30)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressStyle())
                 .onHover { checkHovered = $0 }
+                .animation(Motion.hover, value: checkHovered)
                 .help("Clear from the list. It comes back if the session does something new.")
                 .accessibilityLabel("Clear \(session.projectName) from the list")
             }
@@ -132,6 +135,10 @@ struct SessionRow: View {
             .fill(.white.opacity(hovered ? 0.12 : (session.state.needsAttention ? 0.07 : 0))))
         .contentShape(Rectangle())
         .onHover { hovered = $0 }
+        .animation(Motion.hover, value: hovered)
+        .onChange(of: session.state) { _, state in
+            if animated, state == .done { doneBounces += 1 }
+        }
         .onTapGesture { onSelect(session) }
         .accessibilityElement(children: .combine)
     }
@@ -176,45 +183,6 @@ struct NotchPanelShape: Shape {
     }
 }
 
-struct HeaderUsage: View {
-    var usage: UsageSnapshot
-    var now: Date
-
-    private func color(_ percent: Double) -> Color {
-        switch UsageSnapshot.level(percent) {
-        case .normal: return Color(red: 0.36, green: 0.80, blue: 0.48)
-        case .warning: return .orange
-        case .critical: return Color(red: 1.0, green: 0.35, blue: 0.32)
-        }
-    }
-
-    private func window(_ label: String, _ w: UsageWindow) -> some View {
-        HStack(spacing: 3) {
-            Text(label).foregroundStyle(.white.opacity(0.55))
-            Text("\(Int(w.usedPercent.rounded()))%").foregroundStyle(color(w.usedPercent))
-            if let reset = w.resetsAt {
-                Text(UsageSnapshot.countdown(to: reset, now: now).replacingOccurrences(of: " ", with: ""))
-                    .foregroundStyle(.white.opacity(0.4))
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(label == "5h" ? "Five hour" : "Weekly") limit \(Int(w.usedPercent.rounded())) percent used")
-    }
-
-    var body: some View {
-        HStack(spacing: 6) {
-            if let five = usage.fiveHour { window("5h", five) }
-            if usage.fiveHour != nil, usage.sevenDay != nil {
-                Rectangle().fill(.white.opacity(0.25)).frame(width: 1, height: 10)
-            }
-            if let week = usage.sevenDay { window("7d", week) }
-        }
-        .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
-        .lineLimit(1)
-        .minimumScaleFactor(0.75)
-    }
-}
-
 /// Decisions waiting behind the one on screen. They come up on their own, in order, as each is answered.
 struct UpNextStrip: View {
     var queued: [PendingRequest]
@@ -245,18 +213,22 @@ struct HeaderIconButton: View {
     var label: String
     var action: () -> Void
     @State private var hovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
+                .contentTransition(reduceMotion ? .identity : .symbolEffect(.replace))
                 .font(.system(size: 12, weight: .semibold))
                 .frame(width: 24, height: 22)
                 .foregroundStyle(.white.opacity(hovered ? 1 : 0.75))
                 .background(Circle().fill(.white.opacity(hovered ? 0.16 : 0)))
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressStyle())
         .onHover { hovered = $0 }
+        .animation(Motion.hover, value: hovered)
+        .animation(Motion.fade, value: symbol)
         .help(label)
         .accessibilityLabel(label)
     }
@@ -274,8 +246,8 @@ struct NotchContentView: View {
     var queued: [PendingRequest] = []
     /// Sessions with a decision waiting; their rows can't be cleared.
     var waitingSessionIDs: Set<String> = []
-    var usage: UsageSnapshot? = nil
     var characters = true
+    var rotateDetails = false
     var showAll = false
     var soundsOn = false
     var onSelect: (Session) -> Void = { _ in }
@@ -300,7 +272,7 @@ struct NotchContentView: View {
 
     private var focus: Bool { request != nil && !showAll }
     private var focusSession: Session? { request.flatMap { r in sessions.first { $0.id == r.sessionID } } }
-    private var ear: CGFloat { geometry.earRadius(expanded: expanded, sessionCount: sessions.count) }
+    private var ear: CGFloat { geometry.earRadius(expanded: expanded) }
     private var cardHeight: CGFloat { request.map(RequestCard.height(for:)) ?? 0 }
     private var visibleRows: Int { NotchGeometry.visibleRows(sessionCount: sessions.count, hasCard: request != nil) }
     @State private var page = 0
@@ -324,7 +296,6 @@ struct NotchContentView: View {
         return NotchPanelShape(ear: ear, bottom: bottom, top: geometry.hasNotch ? 0 : bottom)
     }
 
-    private var attention: Int { sessions.filter { $0.state.needsAttention }.count }
     private var finished: Int { sessions.filter { $0.state == .done }.count }
     private var headline: SessionState { sessions.first?.state ?? .idle }   // list is sorted most-urgent first
 
@@ -334,21 +305,32 @@ struct NotchContentView: View {
             Group {
                 if expanded { expandedBody.transition(.opacity) } else { collapsedBody.transition(.opacity) }
             }
+            .animation(contentAnimation, value: expanded)
+            .animation(contentAnimation, value: sessions.map(\.id))
+            .animation(contentAnimation, value: request?.id)
+            .animation(contentAnimation, value: showAll)
+            .animation(Motion.fade, value: currentPage)
             .padding(.horizontal, ear)
         }
         .frame(width: size.width, height: size.height)
         .clipShape(shape)
         .contentShape(shape)
         .environment(\.ravenHeadphones, nowPlaying?.isPlaying == true)
-        .animation(animated ? .spring(response: 0.36, dampingFraction: 0.82) : nil, value: sessions.count)
-        .animation(animated ? .spring(response: 0.36, dampingFraction: 0.82) : nil, value: request?.id)
-        .animation(animated ? .spring(response: 0.36, dampingFraction: 0.82) : nil, value: showAll)
+        .animation(animated ? Motion.panel : nil, value: sessions.map(\.id))
+        .animation(animated ? Motion.panel : nil, value: request?.id)
+        .animation(animated ? Motion.panel : nil, value: showAll)
+    }
+
+    /// With Reduce Motion the shape changes size at once and only what is inside it fades.
+    private var contentAnimation: Animation { animated ? Motion.panel : Motion.fade }
+    private var cardTransition: AnyTransition {
+        .asymmetric(insertion: animated ? .move(edge: .trailing).combined(with: .opacity) : .opacity, removal: .opacity)
     }
 
     @ViewBuilder private var collapsedBody: some View {
-        if sessions.isEmpty, geometry.idleStroll || geometry.idleHome.hasCollapsedContent {
-            // Nothing running: two of the flock stroll beside the notch (a different pair each hour),
-            // unless a wing has something playing or coming up to show instead.
+        if sessions.isEmpty, geometry.hasNotch || geometry.idleStroll || geometry.idleHome.hasCollapsedContent {
+            // Nothing running: one of the flock strolls on the left (a different one each hour) unless
+            // music is playing, and the time sits on the right.
             let crew = PixelSprites.personas
             let hour = Calendar.current.component(.hour, from: Date())
             let side = min(geometry.hasNotch ? geometry.notchHeight - 6 : NotchGeometry.pillHeight - 4, 26)
@@ -359,23 +341,14 @@ struct NotchContentView: View {
                         if idle.hasTrack {
                             musicWing(idle, side: side, persona: crew[hour % crew.count])
                         } else if geometry.idleStroll {
-                            Stroller(persona: crew[hour % crew.count], size: side, range: NotchGeometry.wing - 6, speed: 4, animated: animated, tick: 0.5)
+                            Stroller(persona: crew[hour % crew.count], size: side, range: NotchGeometry.wing - 6, speed: 4, animated: animated, tick: 0.5, waves: true)
                         } else {
                             Color.clear
                         }
                     }
                     .frame(width: NotchGeometry.wing)
                     Color.clear.frame(width: geometry.notchWidth)
-                    Group {
-                        if let label = idle.collapsedLabel {
-                            IdleAgendaWing(label: label)
-                        } else if geometry.idleStroll {
-                            Stroller(persona: crew[(hour + 3) % crew.count], size: side, range: NotchGeometry.wing - 6, speed: 3, phase: 0.5, animated: animated, tick: 0.5)
-                        } else {
-                            Color.clear
-                        }
-                    }
-                    .frame(width: NotchGeometry.wing)
+                    NotchClock(rotates: rotateDetails).frame(width: NotchGeometry.wing)
                 }
                 .frame(height: geometry.notchHeight)
             } else if idle.hasCollapsedContent {
@@ -385,7 +358,7 @@ struct NotchContentView: View {
                 }
                 .frame(height: NotchGeometry.pillHeight)
             } else {
-                Stroller(persona: crew[hour % crew.count], size: side, range: 80, speed: 6, animated: animated, tick: 0.5)
+                Stroller(persona: crew[hour % crew.count], size: side, range: 80, speed: 6, animated: animated, tick: 0.5, waves: true)
                     .frame(height: NotchGeometry.pillHeight)
             }
         } else if sessions.isEmpty {
@@ -397,14 +370,14 @@ struct NotchContentView: View {
             HStack(spacing: 0) {
                 headlineMark(size: geometry.notchHeight - 6).frame(width: NotchGeometry.wing)
                 Color.clear.frame(width: geometry.notchWidth)
-                countLabel.frame(width: NotchGeometry.wing)
+                NotchClock(rotates: rotateDetails).frame(width: NotchGeometry.wing)
             }
             .frame(height: geometry.notchHeight)
         } else {
             HStack(spacing: 7) {
                 headlineMark(size: 18)
                 Text(headline.label).font(.system(size: 11.5, weight: .medium)).foregroundStyle(.white).lineLimit(1)
-                if sessions.count > 1 { countLabel }
+                NotchClock(rotates: rotateDetails)
             }
             .padding(.horizontal, 10)
             .frame(height: NotchGeometry.pillHeight)
@@ -412,9 +385,18 @@ struct NotchContentView: View {
     }
 
     @ViewBuilder private func musicWing(_ idle: IdleHome, side: CGFloat, persona: Persona) -> some View {
-        if characters {
-            PixelBot(mode: .listening(playing: idle.isPlaying), persona: persona, size: side, animated: animated,
-                     fixedFrame: animated ? nil : 0)
+        if characters, animated {
+            TimelineView(.periodic(from: .now, by: Wave.beat)) { context in
+                if let frame = Wave.at(context.date.timeIntervalSinceReferenceDate, phase: 0.25).frame {
+                    // The listening raven keeps its headphones on while paused, so it waves in them too.
+                    PixelBot(mode: .wave, persona: persona, size: side, fixedFrame: frame)
+                        .environment(\.ravenHeadphones, true)
+                } else {
+                    PixelBot(mode: .listening(playing: idle.isPlaying), persona: persona, size: side)
+                }
+            }
+        } else if characters {
+            PixelBot(mode: .listening(playing: idle.isPlaying), persona: persona, size: side, animated: false, fixedFrame: 0)
         } else {
             IdleMusicWing(artwork: artwork, playing: idle.isPlaying, size: 18, animated: animated)
         }
@@ -428,6 +410,7 @@ struct NotchContentView: View {
             pageButton("chevron.left", enabled: currentPage > 0) { page = currentPage - 1 }
             Text("\(currentPage + 1) of \(pageCount)")
                 .font(.system(size: 11, weight: .semibold).monospacedDigit()).foregroundStyle(.white.opacity(0.75))
+                .contentTransition(animated ? .numericText() : .opacity)
             pageButton("chevron.right", enabled: currentPage < pageCount - 1) { page = currentPage + 1 }
             Text("+\(hidden) more running")
                 .font(.system(size: 11)).foregroundStyle(.white.opacity(0.5))
@@ -449,7 +432,7 @@ struct NotchContentView: View {
                 .foregroundStyle(.white.opacity(enabled ? 0.9 : 0.3))
                 .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressStyle())
         .disabled(!enabled)
         .accessibilityLabel(symbol == "chevron.left" ? "Previous page" : "Next page")
     }
@@ -464,30 +447,20 @@ struct NotchContentView: View {
         }
     }
 
-    private var countLabel: some View {
-        Text("\(attention > 0 ? attention : sessions.count)")
-            .font(.system(size: 12, weight: .semibold).monospacedDigit())
-            .foregroundStyle(attention > 0 ? SessionState.needsApproval.color : .white.opacity(0.8))
-            .accessibilityLabel(attention > 0 ? "\(attention) sessions need you" : "\(sessions.count) sessions")
-    }
-
     private var header: some View {
         HStack(spacing: 0) {
-            HStack(spacing: 8) {
-                if let usage {
-                    TimelineView(.periodic(from: .now, by: 30)) { timeline in HeaderUsage(usage: usage, now: timeline.date) }
+            Group {
+                // With nothing running the idle home already shows the music.
+                if !sessions.isEmpty, request == nil, let nowPlaying {
+                    HeaderMiniPlayer(nowPlaying: nowPlaying, allowed: controlsAllowed, animated: animated, tint: tint,
+                                     onPlayPause: { onMusic(.playPause) }, onOpenPlayer: onOpenPlayer)
                 } else {
-                    Text(sessions.isEmpty ? "Raven Island" : "\(sessions.count) session\(sessions.count == 1 ? "" : "s")")
-                        .font(.system(size: 11.5, weight: .medium)).foregroundStyle(.white.opacity(0.7))
+                    TimelineView(.everyMinute) { context in HeaderToday(agenda: agenda, now: context.date) }
                 }
             }
             .frame(width: geometry.headerSideWidth, alignment: .leading)
             Spacer(minLength: 0)
             HStack(spacing: 4) {
-                if !sessions.isEmpty, request == nil, let nowPlaying {
-                    HeaderMiniPlayer(nowPlaying: nowPlaying, compact: finished > 0, allowed: controlsAllowed, animated: animated,
-                                     onPlayPause: { onMusic(.playPause) }, onOpenPlayer: onOpenPlayer)
-                }
                 if finished > 0 {
                     Button(action: onClearFinished) {
                         Text("Clear \(finished) done")
@@ -497,9 +470,10 @@ struct NotchContentView: View {
                             .foregroundStyle(.white.opacity(0.85))
                             .contentShape(Capsule())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PressStyle())
                     .fixedSize()
                 }
+                HeaderBattery(showsPercent: finished == 0)
                 HeaderIconButton(symbol: soundsOn ? "speaker.wave.2.fill" : "speaker.slash.fill",
                                  label: soundsOn ? "Mute sounds" : "Turn sounds on", action: onToggleSound)
                 HeaderIconButton(symbol: "gearshape.fill", label: "Settings", action: onOpenSettings)
@@ -541,7 +515,7 @@ struct NotchContentView: View {
                             onDecision: { onDecision(request, $0) }, onReviewed: { onReviewed(request) },
                             onEditing: { onEditing(request, $0) })
                     .id(request.id)   // fresh text fields and selections for each request
-                    .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
+                    .transition(cardTransition)
                 if !queued.isEmpty { UpNextStrip(queued: queued) }
                 if sessions.count > 1 {
                     footerLink("Show all \(sessions.count) sessions") { onShowAll(true) }
@@ -552,7 +526,7 @@ struct NotchContentView: View {
                                 onDecision: { onDecision(request, $0) }, onReviewed: { onReviewed(request) },
                                 onEditing: { onEditing(request, $0) })
                         .id(request.id)
-                        .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
+                        .transition(cardTransition)
                     if !queued.isEmpty { UpNextStrip(queued: queued) }
                 }
                 if sessions.isEmpty, request == nil, geometry.idleHome.showsPanel {
@@ -599,7 +573,7 @@ struct NotchRootView: View {
     @ObservedObject var settings: Settings
     @ObservedObject var music: MusicSource
     @ObservedObject var calendar: CalendarSource
-    var reduceMotion: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var onSelect: (Session) -> Void
     var onOpenSettings: () -> Void = {}
     var onOpenCalendar: () -> Void = {}
@@ -609,7 +583,7 @@ struct NotchRootView: View {
                          animated: !reduceMotion, request: model.pending.first,
                          queued: Array(model.pending.dropFirst()),
                          waitingSessionIDs: Set(model.pending.map(\.sessionID)),
-                         usage: settings.showUsage ? model.usage : nil, characters: settings.showCharacters,
+                         characters: settings.showCharacters, rotateDetails: settings.rotateNotchDetails,
                          showAll: state.showAll, soundsOn: settings.soundsEnabled,
                          onSelect: onSelect,
                          onDismiss: { model.dismiss($0.id) }, onClearFinished: { model.dismissFinished() },

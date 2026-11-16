@@ -62,7 +62,8 @@ see its party trick.
 </p>
 
 **When nothing is running.** A raven in headphones listens beside the notch while Spotify or
-Apple Music plays, and the start time of your next event shows once it is within the hour. The
+Apple Music plays, and on Macs with a notch the time sits on the other side (optionally taking
+turns with the date and battery); the floating pill shows your next event's time instead. Now and then each raven turns to face you and waves. The
 open panel has the track with large play, pause, and skip buttons, coloured from the album art
 and marked with the player's icon (a spinning record stands in when there is no art), and a
 week strip: click any of six days around today to see its events. While sessions run, the header keeps
@@ -78,9 +79,8 @@ opens the panel by itself. With no track and no events, the ravens are back.
 in Ghostty and Terminal.app, the workspace window in VS Code and its forks, the pane in tmux
 (Terminal.app and tmux are preview: written but not yet tested by hand).
 
-**Usage limits.** The 5-hour and weekly subscription windows, with reset countdowns, at the top
-left of the open panel, read from Claude Code's status line. Your existing status line keeps
-working. Sound and Settings buttons sit at the top right.
+**Header.** The top left of the open panel shows what's playing while sessions run, otherwise
+today's date and your next event. Battery, Sound and Settings sit at the top right.
 
 **And the rest.** Optional sounds for each event (original synthesized tones, or your own pack),
 quiet hours, auto-clearing of finished sessions, launch at login, a floating pill on
@@ -93,7 +93,6 @@ displays without a notch, and an uninstall that puts everything back.
   a notch (and external displays) get a small floating pill instead.
 - **Claude Code only.** Other coding agents aren't supported.
 - **Spotify and Apple Music only** for what's playing. Browsers and other players aren't shown.
-- **Usage limits need a Pro or Max plan.** With an API key the usage strip simply stays hidden.
 
 ## Install
 
@@ -131,9 +130,9 @@ Code, and launches it. A local build is never blocked by Gatekeeper.
 
 | Where | What | Undo |
 |---|---|---|
-| `~/.claude/settings.json` | 14 hook entries and the status line slot (your previous status line keeps running underneath). A backup is saved beside the file first; the newest five are kept. | Settings → Integrations → Uninstall, or `scripts/uninstall.sh` |
-| `~/.ravenisland/` | The helper Claude Code runs on each event, the app's socket, and a note of your previous status line | Removed by uninstall |
-| App preferences | Your settings, and the last usage percentages | Removed by uninstall |
+| `~/.claude/settings.json` | 14 hook entries. Your status line is left alone (versions that showed usage borrowed it; installing or uninstalling gives it back). A backup is saved beside the file first; the newest five are kept. | Settings → Integrations → Uninstall, or `scripts/uninstall.sh` |
+| `~/.ravenisland/` | The helper Claude Code runs on each event, and the app's socket | Removed by uninstall |
+| App preferences | Your settings | Removed by uninstall |
 | Login items | Only if you turn on "Open at login" | Removed by uninstall |
 
 - The helper runs on every Claude Code event and takes about 5 ms. When the app isn't
@@ -160,7 +159,7 @@ Or from a clone of this repository:
 ./scripts/uninstall.sh
 ```
 
-This removes the hooks, restores your previous status line, removes the login item, and
+This removes the hooks, gives back a status line an older version borrowed, removes the login item, and
 deletes the app, `~/.ravenisland`, and the app's preferences, and resets its Calendar and
 Automation permissions. Settings backups in `~/.claude`
 are left for you to delete; they are copies of your settings from before each change.
@@ -209,8 +208,8 @@ The helper doubles as a small CLI:
 
 ```sh
 B=~/.ravenisland/bin/ravenisland-bridge
-$B status          # hook and status line installation
-$B install         # (re)install hooks; --no-statusline to leave the status line alone
+$B status          # hook installation
+$B install         # (re)install hooks
 $B uninstall
 $B sessions        # session states as JSON (no prompts or paths)
 $B pending         # requests waiting for an answer (ids only)

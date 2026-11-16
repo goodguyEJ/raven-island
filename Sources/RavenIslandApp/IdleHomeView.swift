@@ -126,7 +126,7 @@ struct IdleHomePanel: View {
         HStack(spacing: 12) {
             ZStack(alignment: .bottomLeading) {
                 if artwork != nil {
-                    IdleArtwork(artwork: artwork, size: 56)
+                    IdleArtwork(artwork: artwork, size: 56).id(artwork).transition(.opacity)
                 } else {
                     SpinningRecord(app: track.app, playing: track.isPlaying, animated: animated, size: 56)
                 }
@@ -138,6 +138,7 @@ struct IdleHomePanel: View {
                 }
             }
             .onTapGesture(perform: onOpenPlayer)
+            .animation(Motion.fade, value: artwork)
             VStack(alignment: .leading, spacing: 2) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(TextSafety.visible(track.title))
@@ -147,6 +148,9 @@ struct IdleHomePanel: View {
                             .font(.system(size: 11.5)).foregroundStyle(accent ?? .white.opacity(0.58))
                     }
                 }
+                .contentTransition(.opacity)
+                .animation(Motion.fade, value: track.title)
+                .animation(Motion.fade, value: accent)
                 .lineLimit(1).truncationMode(.tail)
                 .contentShape(Rectangle())
                 .onTapGesture(perform: onOpenPlayer)
@@ -160,7 +164,7 @@ struct IdleHomePanel: View {
                     control(track.isPlaying ? "pause.fill" : "play.fill", track.isPlaying ? "Pause" : "Play", .playPause, size: 30)
                     control("forward.fill", "Next track", .next, size: 22)
                 }
-                .frame(maxWidth: 220)
+                .frame(maxWidth: .infinity)
             }
         }
     }
@@ -204,7 +208,6 @@ struct IdleHomePanel: View {
                 .font(.system(size: 10.5).monospacedDigit())
                 .foregroundStyle(.white.opacity(0.45))
         }
-        .frame(maxWidth: 220)
     }
 
     private var agendaHalf: some View {
@@ -219,6 +222,8 @@ struct AgendaWeekView: View {
     /// Lets snapshots show a day other than today selected.
     var selectedOverride: Date? = nil
     @State private var picked: (day: Date, today: Date)?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var strip
 
     static let todayBlue = Color(red: 0.04, green: 0.52, blue: 1)
 
@@ -233,8 +238,10 @@ struct AgendaWeekView: View {
                     HStack(spacing: 0) {
                         ForEach(week.days, id: \.self) { d in dayButton(d, week: week, selected: d == day) }
                     }
+                    .animation(reduceMotion ? Motion.fade : Motion.panel, value: day)
                 }
                 rows(for: day, week: week, now: context.date)
+                    .animation(Motion.fade, value: day)
                 Spacer(minLength: 0)
             }
         }
@@ -264,12 +271,17 @@ struct AgendaWeekView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 3)
-            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(.white.opacity(selected ? 0.1 : 0)))
+            .background { if selected { dayHighlight } }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(day.formatted(date: .complete, time: .omitted))
         .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    @ViewBuilder private var dayHighlight: some View {
+        let highlight = RoundedRectangle(cornerRadius: 7, style: .continuous).fill(.white.opacity(0.1))
+        if reduceMotion { highlight } else { highlight.matchedGeometryEffect(id: "selected", in: strip) }
     }
 
     @ViewBuilder private func rows(for day: Date, week: AgendaWeek, now: Date) -> some View {
@@ -325,18 +337,22 @@ struct MusicControlButton: View {
     var size: CGFloat = 12
     var action: () -> Void
     @State private var hovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
+                .contentTransition(reduceMotion ? .identity : .symbolEffect(.replace))
                 .font(.system(size: size, weight: .semibold))
                 .frame(width: max(36, size + 16), height: max(36, size + 6))
                 .foregroundStyle(.white.opacity(allowed ? (hovered ? 1 : 0.8) : 0.3))
                 .background(Circle().fill(.white.opacity(hovered ? 0.16 : 0)))
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressStyle())
         .onHover { hovered = $0 }
+        .animation(Motion.hover, value: hovered)
+        .animation(Motion.fade, value: symbol)
         .help(allowed ? label : "Allow Raven Island to control this app in System Settings → Privacy & Security → Automation")
         .accessibilityLabel(label)
     }
@@ -344,26 +360,30 @@ struct MusicControlButton: View {
 
 struct HeaderMiniPlayer: View {
     var nowPlaying: NowPlaying
-    /// No room for the name, when "Clear N done" shares the header.
-    var compact: Bool
     var allowed: Bool
     var animated: Bool
+    /// The artwork's colour; green until there is one.
+    var tint: Color?
     var onPlayPause: () -> Void
     var onOpenPlayer: () -> Void
+    @State private var hovered = false
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: "music.note").font(.system(size: 10, weight: .semibold)).foregroundStyle(.white.opacity(0.6))
-                .accessibilityHidden(true)
-            if !compact {
-                Marquee(text: TextSafety.visible(nowPlaying.title), animated: animated)
-                    .frame(minWidth: 40, maxWidth: .infinity)
-                    .layoutPriority(-1)
-                    .contentShape(Rectangle())
-                    .onTapGesture(perform: onOpenPlayer)
-                    .accessibilityLabel("Now playing: \(TextSafety.visible(nowPlaying.title))")
-                    .accessibilityAddTraits(.isButton)
+            Button(action: onOpenPlayer) {
+                Marquee(text: TextSafety.visible(nowPlaying.title), color: tint ?? .green, animated: animated)
+                    .padding(.horizontal, 4).padding(.vertical, 3)
+                    .background(Capsule().fill(.white.opacity(hovered ? 0.16 : 0)))
+                    .contentShape(Capsule())
             }
+            .buttonStyle(PressStyle())
+            .onHover { hovered = $0 }
+            .animation(Motion.hover, value: hovered)
+            .help("Open \(nowPlaying.app.displayName)")
+            .frame(minWidth: 40, maxWidth: .infinity)
+            .layoutPriority(-1)
+            .accessibilityLabel("Now playing: \(TextSafety.visible(nowPlaying.title))")
+            .accessibilityHint("Opens \(nowPlaying.app.displayName)")
             HeaderIconButton(symbol: nowPlaying.isPlaying ? "pause.fill" : "play.fill",
                              label: nowPlaying.isPlaying ? "Pause" : "Play", action: onPlayPause)
                 .opacity(allowed ? 1 : 0.4)
@@ -373,6 +393,7 @@ struct HeaderMiniPlayer: View {
 
 struct Marquee: View {
     var text: String
+    var color: Color
     var animated: Bool
 
     private static let font = NSFont.systemFont(ofSize: 11, weight: .medium)
@@ -381,7 +402,7 @@ struct Marquee: View {
     private static let gap: CGFloat = 28
 
     private var label: some View {
-        Text(text).font(.system(size: 11, weight: .medium)).foregroundStyle(.white.opacity(0.8)).lineLimit(1)
+        Text(text).font(.system(size: 11, weight: .medium)).foregroundStyle(color).lineLimit(1)
     }
 
     var body: some View {
@@ -517,10 +538,32 @@ struct CalendarPromptCard: View {
                         .foregroundStyle(.white)
                         .contentShape(Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressStyle())
             }
             Spacer(minLength: 0)
         }
         .frame(maxHeight: .infinity)
+    }
+}
+
+/// Left of the header when no music shows there: today's date and the next event still to come today.
+struct HeaderToday: View {
+    var agenda: [AgendaEvent]
+    var now: Date
+
+    var body: some View {
+        let next = Agenda.remainingToday(agenda, now: now, calendar: .current, limit: 1).first
+        HStack(spacing: 5) {
+            Text(now.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
+                .font(.system(size: 11.5, weight: .semibold)).foregroundStyle(.white.opacity(0.85))
+            if let next {
+                Text(next.start <= now ? "Now" : Agenda.timeLabel(next.start, calendar: .current, locale: .current))
+                    .font(.system(size: 11, weight: .semibold).monospacedDigit()).foregroundStyle(AgendaWeekView.todayBlue)
+                Text(TextSafety.visible(next.title))
+                    .font(.system(size: 11)).foregroundStyle(.white.opacity(0.7)).truncationMode(.tail)
+            }
+        }
+        .lineLimit(1)
+        .accessibilityElement(children: .combine)
     }
 }

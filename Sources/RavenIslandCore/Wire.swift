@@ -86,11 +86,6 @@ public struct Reply: Codable, Equatable, Sendable {
     }
 }
 
-/// Event name the bridge uses when forwarding status line input (not a Claude Code hook event).
-public enum StatusLineEvent {
-    public static let name = "StatusLine"
-}
-
 /// Events for which the bridge waits for a reply.
 /// Internal requests from the `ravenisland-bridge` CLI to the app (not hook events).
 public enum ControlEvent {
