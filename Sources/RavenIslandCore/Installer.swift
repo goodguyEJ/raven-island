@@ -17,7 +17,6 @@ public struct Installer {
     /// `exec` makes the helper the hook process itself, so when Claude Code cancels a hook the helper
     /// goes with it. A missing helper exits 0 so Claude Code is never affected.
     public static let hookCommand = #"B="$HOME/.ravenisland/bin/ravenisland-bridge"; [ -x "$B" ] && exec "$B" hook claude 2>/dev/null; exit 0"#
-    public static let statusLineCommand = #"B="$HOME/.ravenisland/bin/ravenisland-bridge"; [ -x "$B" ] && exec "$B" statusline 2>/dev/null; exit 0"#
 
     /// Events we listen to, with an explicit timeout (seconds) where the default is too short.
     public static let events: [(name: String, timeout: Int?)] = [
@@ -41,8 +40,8 @@ public struct Installer {
         /// Commands from other tools on PermissionRequest; two tools must not both answer it.
         public var otherPermissionHooks: [String]
         public var statusLine: String?
-        /// True when the status line slot runs Raven Island's helper (which then runs the previous command).
-        public var statusLineInstalled: Bool { statusLine?.contains(Installer.marker) == true }
+        /// True when the status line slot still runs the helper, as versions that showed usage set it up.
+        public var statusLineInstalled: Bool { statusLine.map(Installer.isOurCommand) == true }
         public var isFullyInstalled: Bool { missing.isEmpty }
     }
 
@@ -52,8 +51,7 @@ public struct Installer {
     }
 
     public var settingsURL: URL
-    /// Where the status line that was configured before Raven Island is remembered, so it can keep
-    /// running underneath ours and be put back on uninstall.
+    /// Where versions that showed usage remembered the status line they replaced, so it can be put back.
     public var previousStatusLineURL: URL
 
     /// The app's folder under its earlier name, if this install should migrate from it: its remembered
@@ -70,18 +68,6 @@ public struct Installer {
 
     static func isOurStatusLine(_ value: Any?) -> Bool {
         ((value as? [String: Any])?["command"] as? String).map(isOurCommand) == true
-    }
-
-    /// Takes over the status line slot. Returns the previous entry if there was one to remember.
-    static func withStatusLine(_ root: [String: Any]) -> (root: [String: Any], previous: [String: Any]?) {
-        guard !isOurStatusLine(root["statusLine"]) else { return (root, nil) }
-        var root = root
-        let previous = root["statusLine"] as? [String: Any]
-        var ours: [String: Any] = ["type": "command", "command": statusLineCommand]
-        // Keep the user's display options so their status line behaves as before.
-        for key in ["padding", "refreshInterval"] { if let value = previous?[key] { ours[key] = value } }
-        root["statusLine"] = ours
-        return (root, previous)
     }
 
     /// Puts back the remembered status line, or clears the slot if there was none.
@@ -283,7 +269,7 @@ public struct Installer {
     }
 
     @discardableResult
-    public func install(statusLine: Bool = true, now: Date = Date()) throws -> Change {
+    public func install(now: Date = Date()) throws -> Change {
         let fm = FileManager.default
         if let legacyRoot, !fm.fileExists(atPath: previousStatusLineURL.path) {
             let old = legacyRoot.appendingPathComponent("previous-statusline.json")
@@ -294,34 +280,11 @@ public struct Installer {
         }
         defer { removeLegacyRootIfUnused() }
         let (root, exists) = try load()
-        var next = Self.merged(root)
-        var previous: [String: Any]?
-        var tookOverStatusLine = false
-        if statusLine, !Self.isOurStatusLine(next["statusLine"]) {
-            (next, previous) = Self.withStatusLine(next)
-            tookOverStatusLine = true
-        } else if statusLine, var ours = next["statusLine"] as? [String: Any] {
-            // Already ours, perhaps from an older version: bring the command up to date and restore the
-            // remembered display options.
-            ours["command"] = Self.statusLineCommand
-            let remembered = loadPreviousStatusLine()
-            for key in ["padding", "refreshInterval"] where ours[key] == nil {
-                if let value = remembered?[key] { ours[key] = value }
-            }
-            next["statusLine"] = ours
-        }
+        let next = Self.withoutStatusLine(Self.merged(root), previous: loadPreviousStatusLine())
         if exists, NSDictionary(dictionary: root).isEqual(to: next) { return Change(changed: false, backup: nil) }
-        if tookOverStatusLine {
-            // Remember (or forget) what was there before, ahead of changing the settings file.
-            if let previous {
-                try fm.createDirectory(at: previousStatusLineURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-                try JSONSerialization.data(withJSONObject: previous, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
-                    .write(to: previousStatusLineURL, options: .atomic)
-            } else {
-                try? fm.removeItem(at: previousStatusLineURL)
-            }
-        }
-        return Change(changed: true, backup: try write(next, hadFile: exists, now: now))
+        let change = Change(changed: true, backup: try write(next, hadFile: exists, now: now))
+        if Self.isOurStatusLine(root["statusLine"]) { try? fm.removeItem(at: previousStatusLineURL) }
+        return change
     }
 
     @discardableResult

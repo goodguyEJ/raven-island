@@ -2,51 +2,6 @@ import Foundation
 import Testing
 @testable import RavenIslandCore
 
-@Suite struct UsageTests {
-    let now = Date(timeIntervalSince1970: 1_800_000_000)
-
-    func payload(_ json: String) throws -> JSONValue { try #require(JSONValue.parse(Data(json.utf8))) }
-
-    @Test func parsesStatusLineUsage() throws {
-        let p = try payload(#"{"session_id":"s","model":{"id":"x"},"rate_limits":{"five_hour":{"used_percentage":42.5,"resets_at":1800007200},"seven_day":{"used_percentage":118,"resets_at":1800300000}}}"#)
-        let u = try #require(UsageSnapshot(statusLine: p, now: now))
-        #expect(u.fiveHour == UsageWindow(usedPercent: 42.5, resetsAt: Date(timeIntervalSince1970: 1_800_007_200)))
-        #expect(u.sevenDay?.usedPercent == 100)   // clamped
-        #expect(u.updatedAt == now)
-    }
-
-    @Test func missingUsageIsNil() throws {
-        #expect(UsageSnapshot(statusLine: try payload(#"{"session_id":"s"}"#)) == nil)
-        #expect(UsageSnapshot(statusLine: try payload(#"{"rate_limits":{}}"#)) == nil)
-        #expect(UsageSnapshot(statusLine: try payload(#"{"rate_limits":{"spend_limit":{"used_percentage":3}}}"#)) == nil)
-    }
-
-    @Test func partialReportsMergeAndExpiredWindowsDrop() throws {
-        let both = UsageSnapshot(fiveHour: UsageWindow(usedPercent: 40, resetsAt: now + 600),
-                                 sevenDay: UsageWindow(usedPercent: 10, resetsAt: now + 90_000), updatedAt: now)
-        let onlyFive = try #require(UsageSnapshot(statusLine: try payload(#"{"rate_limits":{"five_hour":{"used_percentage":55}}}"#), now: now + 60))
-        let merged = both.merging(onlyFive)
-        #expect(merged.fiveHour?.usedPercent == 55)
-        #expect(merged.sevenDay?.usedPercent == 10)
-
-        let later = both.current(now: now + 601)   // 5-hour window has reset
-        #expect(later.fiveHour == nil)
-        #expect(later.sevenDay != nil)
-        #expect(both.current(now: now + 100_000).isEmpty)
-    }
-
-    @Test func levelsAndCountdowns() {
-        #expect(UsageSnapshot.level(10) == .normal)
-        #expect(UsageSnapshot.level(75) == .warning)
-        #expect(UsageSnapshot.level(90) == .critical)
-        #expect(UsageSnapshot.countdown(to: now + 20, now: now) == "1m")
-        #expect(UsageSnapshot.countdown(to: now + 12 * 60, now: now) == "12m")
-        #expect(UsageSnapshot.countdown(to: now + 2 * 3600 + 13 * 60, now: now) == "2h 13m")
-        #expect(UsageSnapshot.countdown(to: now + 3 * 86_400 + 4 * 3600 + 5, now: now) == "3d 4h")
-        #expect(UsageSnapshot.countdown(to: now - 50, now: now) == "1m")
-    }
-}
-
 @Suite struct PixelSpriteTests {
     static let allowed = Set(".BbAaFfTWKHhSsYRGZP")
 
@@ -93,6 +48,20 @@ import Testing
             let standing = PixelSprites.walkFrames(persona: p)[0]
             let working = PixelSprites.frames(for: .working, persona: p)[1]
             #expect(working[2].prefix(10) == standing[2].prefix(10))
+        }
+    }
+
+    @Test func everyRavenTurnsToFaceUsAndWaves() {
+        for p in PixelSprites.personas {
+            for wearing in [false, true] {
+                let wave = PixelSprites.waveFrames(persona: p, headphones: wearing)
+                wellFormed(wave, "\(p.id) wave")
+                // Facing us: the first frame is the same on both sides of the middle column.
+                let front = wave[0].map { Array($0.prefix(PixelSprites.bodyWidth)) }
+                #expect(front.allSatisfy { $0 == $0.reversed() }, "\(p.id) is not facing forward")
+                #expect(Set(wave).count >= 3, "\(p.id) does not wave")
+                #expect(wave.allSatisfy { $0.joined().contains("P") } == wearing)
+            }
         }
     }
 

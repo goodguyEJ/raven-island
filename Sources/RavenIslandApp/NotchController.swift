@@ -63,7 +63,8 @@ final class NotchController {
     var onOpenSettings: (CGRect?) -> Void = { _ in }
 
     private var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
-    private var spring: Animation? { reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.82) }
+    private var spring: Animation? { reduceMotion ? nil : Motion.panel }
+    private var settle: TimeInterval { reduceMotion ? 0 : Motion.panelSettle }
 
     init(model: AppModel, settings: Settings, music: MusicSource, calendar: CalendarSource) {
         self.model = model
@@ -97,7 +98,7 @@ final class NotchController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
 
         let root = NotchRootView(model: model, state: state, settings: settings, music: music, calendar: calendar,
-                                 reduceMotion: reduceMotion, onSelect: { [weak self] s in
+                                 onSelect: { [weak self] s in
             self?.onSelect(s)
         }, onOpenSettings: { [weak self] in self?.openSettingsFromPanel() }, onOpenCalendar: {
             NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Calendar.app"))
@@ -130,7 +131,7 @@ final class NotchController {
                 guard let self else { return }
                 // Growing: make room first. Shrinking: let the shape finish animating, or its bottom is cut off.
                 if showAll { self.applyFrame() }
-                else { DispatchQueue.main.asyncAfter(deadline: .now() + (self.reduceMotion ? 0 : 0.45)) { self.applyFrame() } }
+                else { DispatchQueue.main.asyncAfter(deadline: .now() + self.settle) { self.applyFrame() } }
             }
             .store(in: &subscriptions)
         // Delivered on the next pass of the run loop, after the published values have changed.
@@ -172,7 +173,7 @@ final class NotchController {
         let after = currentSize()
         // Shrinking while open: let the shape finish animating, or its bottom is cut off.
         if state.expanded, after.height < before.height {
-            DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0 : 0.45)) { [weak self] in self?.applyFrame() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + settle) { [weak self] in self?.applyFrame() }
         } else {
             applyFrame()
         }
@@ -274,6 +275,6 @@ final class NotchController {
             if self.suppressHover, !self.panel.frame.contains(NSEvent.mouseLocation) { self.suppressHover = false }
         }
         shrinkWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0 : 0.45), execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + settle, execute: work)
     }
 }

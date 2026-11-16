@@ -1,6 +1,6 @@
 #!/bin/sh
-# Removes Raven Island from this Mac: its hooks and status line entry in Claude Code's settings
-# (restoring your previous status line), the "open at login" registration, the app in
+# Removes Raven Island from this Mac: its hooks in Claude Code's settings (and gives back a status
+# line an older version borrowed), the "open at login" registration, the app in
 # ~/Applications or /Applications, its helper folder, its preferences, and its Calendar and
 # Automation permissions.
 # Settings backups (~/.claude/settings.json.ravenisland-backup-*) are left for you to delete;

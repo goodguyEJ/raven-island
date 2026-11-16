@@ -12,9 +12,10 @@ final class Settings: ObservableObject {
     @Published var autoExpand: Bool { didSet { defaults.set(autoExpand, forKey: "autoExpand") } }
     @Published var answersFromPanel: Bool { didSet { defaults.set(answersFromPanel, forKey: "answersFromPanel") } }
     @Published var showCharacters: Bool { didSet { defaults.set(showCharacters, forKey: "showCharacters") } }
-    /// With nothing running, two characters stroll beside the notch.
+    /// With nothing running, a character strolls beside the notch.
     @Published var strollWhenIdle: Bool { didSet { defaults.set(strollWhenIdle, forKey: "strollWhenIdle") } }
-    @Published var showUsage: Bool { didSet { defaults.set(showUsage, forKey: "showUsage") } }
+    /// Beside the notch, take turns showing the time, the date and the battery.
+    @Published var rotateNotchDetails: Bool { didSet { defaults.set(rotateNotchDetails, forKey: "rotateNotchDetails") } }
     /// "auto": the built-in notched display when there is one. "primary": the display with the menu bar.
     @Published var displayMode: String { didSet { defaults.set(displayMode, forKey: "displayMode") } }
     /// Keeps the panel out of screen shares, recordings, and screenshots.
@@ -61,7 +62,7 @@ final class Settings: ObservableObject {
         self.defaults = defaults
         defaults.register(defaults: [
             "autoExpand": true, "answersFromPanel": true, "shortcutsEnabled": true,
-            "showCharacters": true, "showUsage": true, "strollWhenIdle": true, "displayMode": "auto", "hideFromScreenSharing": true,
+            "showCharacters": true, "strollWhenIdle": true, "rotateNotchDetails": false, "displayMode": "auto", "hideFromScreenSharing": true,
             "autoClearMinutes": 5, "clearOnJump": true,
             "soundsEnabled": false, "volume": 0.5, "soundPack": Self.builtInPack,
             "quietHoursEnabled": false, "quietStart": 22, "quietEnd": 7,
@@ -75,8 +76,8 @@ final class Settings: ObservableObject {
         shortcutsEnabled = defaults.bool(forKey: "shortcutsEnabled")
         setupDeferred = defaults.bool(forKey: "setupDeferred")
         showCharacters = defaults.bool(forKey: "showCharacters")
-        showUsage = defaults.bool(forKey: "showUsage")
         strollWhenIdle = defaults.bool(forKey: "strollWhenIdle")
+        rotateNotchDetails = defaults.bool(forKey: "rotateNotchDetails")
         displayMode = defaults.string(forKey: "displayMode") ?? "auto"
         hideFromScreenSharing = defaults.bool(forKey: "hideFromScreenSharing")
         autoClearMinutes = defaults.integer(forKey: "autoClearMinutes")

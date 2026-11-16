@@ -40,7 +40,7 @@ struct SettingsView: View {
                 Toggle("Show pixel characters", isOn: $settings.showCharacters)
                 Toggle("Characters stroll by the notch when nothing is running", isOn: $settings.strollWhenIdle)
                     .disabled(!settings.showCharacters)
-                Toggle("Show usage limits", isOn: $settings.showUsage)
+                Toggle("Beside the notch, rotate the time, date and battery", isOn: $settings.rotateNotchDetails)
                 Toggle("Answer requests from the panel", isOn: $settings.answersFromPanel)
                 Text("When off, Raven Island only watches. Approvals, questions, and plans stay in the terminal.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -158,10 +158,6 @@ struct SettingsView: View {
                         Label(status.isFullyInstalled ? "Installed" : "\(status.installed.count) of \(Installer.events.count) installed",
                               systemImage: status.isFullyInstalled ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                             .foregroundStyle(status.isFullyInstalled ? .green : .orange)
-                    }
-                    LabeledContent("Usage display") {
-                        Text(status.statusLineInstalled ? "On (via the status line)" : "Off — reinstall to enable")
-                            .foregroundStyle(status.statusLineInstalled ? .primary : .secondary)
                     }
                     if !status.otherPermissionHooks.isEmpty {
                         Text("Another tool is also set to answer permission requests (\(status.otherPermissionHooks.count) hook). If both apps run, both will show a prompt.")

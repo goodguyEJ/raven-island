@@ -85,20 +85,12 @@ func runControl(_ event: String, payload: [String: JSONValue] = [:]) -> Never {
     }
 }
 
-/// Runs as Claude Code's status line command: passes the usage data to Raven Island, then runs whatever
-/// status line was configured before, so the line the user sees is unchanged.
+/// Versions that showed usage put this in Claude Code's status line slot. It now only runs the status
+/// line that was there before, so the line looks the same until install or uninstall gives the slot back.
 func runStatusLine() -> Never {
     // The chained command may exit without reading its input; that must not kill us.
     signal(SIGPIPE, SIG_IGN)
     let input = FileHandle.standardInput.readDataToEndOfFile()
-    if let payload = JSONValue.parse(input), payload["rate_limits"] != nil,
-       let fd = try? UnixSocket.connect(path: AppPaths.socket.path) {
-        UnixSocket.setTimeouts(fd: fd, sendMs: 100, recvMs: 0)
-        let envelope = Envelope(agent: "claude", event: StatusLineEvent.name, blocking: false,
-                                payload: payload, context: TerminalContext())
-        if let body = try? JSONEncoder().encode(envelope) { try? UnixSocket.sendFrame(fd: fd, body) }
-        close(fd)
-    }
     if let data = try? Data(contentsOf: AppPaths.previousStatusLine),
        let previous = JSONValue.parse(data), let command = previous["command"]?.string,
        !Installer.isOurCommand(command) {   // never chain to ourselves
@@ -146,14 +138,7 @@ func printStatus(_ s: Installer.Status) {
         for c in s.otherPermissionHooks { print("  " + c) }
     }
     if s.statusLineInstalled {
-        var chained = "nothing"
-        if let data = try? Data(contentsOf: AppPaths.previousStatusLine),
-           let command = JSONValue.parse(data)?["command"]?.string { chained = command }
-        print("Status line: Raven Island (for usage), then: \(chained)")
-    } else if let line = s.statusLine {
-        print("Status line: \(line) (usage display is off; run install to enable it)")
-    } else {
-        print("Status line: not set (usage display is off; run install to enable it)")
+        print("Status line: still set up by an older version; run install to give it back")
     }
 }
 
@@ -187,7 +172,7 @@ case "install", "uninstall", "status":
         switch args[0] {
         case "install":
             try copySelfToInstallLocation()
-            let change = try installer.install(statusLine: !args.contains("--no-statusline"))
+            let change = try installer.install()
             print(change.changed ? "Installed hooks in \(installer.settingsURL.path)" : "Hooks already installed; nothing changed.")
             if let b = change.backup { print("Backup: \(b.path)") }
         case "uninstall":
@@ -204,8 +189,7 @@ case "install", "uninstall", "status":
 default:
     print("""
     usage: ravenisland-bridge hook [agent]          read a hook event on stdin and forward it to Raven Island
-           ravenisland-bridge install [--settings PATH] [--no-statusline]
-           ravenisland-bridge statusline               status line command: report usage, then run the previous one
+           ravenisland-bridge install [--settings PATH]
            ravenisland-bridge uninstall [--settings PATH]
            ravenisland-bridge status [--settings PATH]
            ravenisland-bridge sessions                 print the running app's session states as JSON (no prompts or paths)

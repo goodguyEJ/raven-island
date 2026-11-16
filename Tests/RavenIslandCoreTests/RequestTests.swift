@@ -248,16 +248,6 @@ import Testing
         #expect(r.isTooLongToReview)
     }
 
-    @Test func absurdUsageValuesAreIgnored() throws {
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let p = try #require(JSONValue.parse(Data(#"{"rate_limits":{"five_hour":{"used_percentage":50,"resets_at":1e30},"seven_day":{"used_percentage":10,"resets_at":-5}}}"#.utf8)))
-        let u = try #require(UsageSnapshot(statusLine: p, now: now))
-        #expect(u.fiveHour?.resetsAt == nil)
-        #expect(u.sevenDay?.resetsAt == nil)
-        #expect(UsageSnapshot.countdown(to: Date(timeIntervalSince1970: 1e30), now: now) == "365d 0h")
-        #expect(UsageSnapshot.countdown(to: Date(timeIntervalSince1970: .infinity), now: now) == "1m")
-    }
-
     @Test func largeUnusedKeysAreDropped() throws {
         let raw = #"{"session_id":"s","hook_event_name":"PostToolUse","tool_name":"Grep","tool_response":{"lines":[1,2,3]},"last_assistant_message":"long","tool_input":{"pattern":"x"}}"#
         let p = try #require(PayloadTrim.parse(Data(raw.utf8)))

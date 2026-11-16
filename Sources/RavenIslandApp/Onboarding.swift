@@ -6,7 +6,6 @@ import RavenIslandCore
 struct SetupFacts {
     var claudeCodeFound: Bool
     var otherApprovalTools: Int
-    var currentStatusLine: String?
 
     static func gather(status: Installer.Status?) -> SetupFacts {
         let fm = FileManager.default
@@ -16,8 +15,7 @@ struct SetupFacts {
                           home.appendingPathComponent(".claude/local/claude").path]
         let found = candidates.contains { fm.isExecutableFile(atPath: $0) }
             || fm.fileExists(atPath: home.appendingPathComponent(".claude").path)
-        return SetupFacts(claudeCodeFound: found, otherApprovalTools: status?.otherPermissionHooks.count ?? 0,
-                          currentStatusLine: status?.statusLineInstalled == true ? nil : status?.statusLine)
+        return SetupFacts(claudeCodeFound: found, otherApprovalTools: status?.otherPermissionHooks.count ?? 0)
     }
 }
 
@@ -29,7 +27,6 @@ struct SetupView: View {
     var facts: SetupFacts
     var close: () -> Void
 
-    @State private var useStatusLine = true
     @State private var watchOnly = false
     @State private var result: String?
     @State private var failed = false
@@ -58,16 +55,6 @@ struct SetupView: View {
             }
 
             Divider()
-
-            Toggle(isOn: $useStatusLine) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Show my usage limits")
-                    Text(facts.currentStatusLine == nil
-                         ? "Reads them from Claude Code's status line. Pro and Max plans only."
-                         : "Reads them from Claude Code's status line, then runs your current status line so it looks the same. Pro and Max plans only.")
-                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                }
-            }
 
             Picker("Approvals", selection: $watchOnly) {
                 Text("Answer them from the notch").tag(false)
@@ -109,7 +96,7 @@ struct SetupView: View {
 
     private func connect() {
         do {
-            let change = try model.installIntegration(statusLine: useStatusLine)
+            let change = try model.installIntegration()
             settings.answersFromPanel = !watchOnly
             failed = false
             result = "Connected. Sessions appear in the notch as soon as they do something."

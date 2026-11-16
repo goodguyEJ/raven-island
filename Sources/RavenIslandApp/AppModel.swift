@@ -18,8 +18,6 @@ final class AppModel: ObservableObject {
     @Published private(set) var log: [LogEntry] = []
     @Published private(set) var hookStatus: Installer.Status?
     @Published private(set) var eventCount = 0
-    /// Latest subscription usage reported through the status line; nil until one arrives.
-    @Published private(set) var usage: UsageSnapshot?
 
     /// Brings a session's terminal to the front. Set by the app delegate.
     var jump: (Session) -> String = { _ in "Jumping is not available" }
@@ -71,11 +69,6 @@ final class AppModel: ObservableObject {
     var attentionCount: Int { store.attentionCount }
 
     func start() {
-        if let data = UserDefaults.standard.data(forKey: "usage"),
-           let saved = try? JSONDecoder().decode(UsageSnapshot.self, from: data) {
-            let live = saved.current()
-            usage = live.isEmpty ? nil : live
-        }
         refreshHookStatus()
         reapTimer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.reap() }
@@ -168,12 +161,6 @@ final class AppModel: ObservableObject {
             return
         }
 
-        if envelope.event == StatusLineEvent.name {
-            if let report = UsageSnapshot(statusLine: envelope.payload) { updateUsage(report) }
-            connection?.reply(.passthroughReply)   // never leave a connection unanswered
-            return
-        }
-
         // A later event can show that a waiting request was settled in the terminal.
         for request in pending where request.isResolved(by: envelope) {
             finish(request.id, reply: .passthroughReply, note: "settled elsewhere")
@@ -215,13 +202,6 @@ final class AppModel: ObservableObject {
         if decision != .terminal { store.markResolved(sessionID: request.sessionID) }
         finish(id, reply: decision.reply(for: request), note: label(decision))
         publishSessions()
-    }
-
-    private func updateUsage(_ report: UsageSnapshot) {
-        let merged = (usage?.merging(report) ?? report).current()
-        guard merged != usage else { return }
-        usage = merged.isEmpty ? nil : merged
-        if let data = try? JSONEncoder().encode(merged) { UserDefaults.standard.set(data, forKey: "usage") }
     }
 
     private func finish(_ id: String, reply: Reply?, note: String) {
@@ -306,17 +286,12 @@ final class AppModel: ObservableObject {
         }
         if let after = autoClearAfter, store.dismissFinished(olderThan: after) > 0 { changed = true }
         if changed { publishSessions() }
-        // A window that has reset since the last report no longer applies.
-        if let u = usage {
-            let live = u.current()
-            if live != u { usage = live.isEmpty ? nil : live }
-        }
     }
 
     /// Installs the helper and hooks. The helper goes first: hooks that point at a missing helper
     /// would silently do nothing.
     @discardableResult
-    func installIntegration(statusLine: Bool = true) throws -> Installer.Change {
+    func installIntegration() throws -> Installer.Change {
         defer { refreshHookStatus() }
         let helper = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/ravenisland-bridge")
         try AppPaths.ensureRoot()
@@ -324,7 +299,7 @@ final class AppModel: ObservableObject {
         if let executable = Bundle.main.executableURL { try Installer.recordAppExecutable(executable) }
         var installer = Installer()
         installer.legacyRoot = AppPaths.legacyRoot
-        return try installer.install(statusLine: statusLine)
+        return try installer.install()
     }
 
     @discardableResult

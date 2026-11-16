@@ -8,6 +8,7 @@ struct PixelBot: View {
         case walk
         case trick
         case listening(playing: Bool)
+        case wave
     }
 
     var mode: Mode
@@ -58,6 +59,7 @@ struct PixelBot: View {
         case .walk: return PixelSprites.walkFrames(persona: persona, headphones: headphones)
         case .trick: return PixelSprites.trickFrames(persona: persona, headphones: headphones)
         case .listening(let playing): return PixelSprites.listeningFrames(persona: persona, playing: playing)
+        case .wave: return PixelSprites.waveFrames(persona: persona, headphones: headphones)
         }
     }
 
@@ -69,6 +71,7 @@ struct PixelBot: View {
         case .walk: return 0.25
         case .trick: return 0.28
         case .listening: return 0.5
+        case .wave: return Wave.beat
         }
     }
 
@@ -78,6 +81,7 @@ struct PixelBot: View {
         case .walk: return "\(persona.name) the \(persona.role), keeping watch"
         case .trick: return "\(persona.name) the \(persona.role)"
         case .listening(let playing): return playing ? "Listening to music" : "Music paused"
+        case .wave: return "\(persona.name) waving"
         }
     }
 
@@ -119,6 +123,8 @@ struct Stroller: View {
     var tricks = false
     /// Seconds between redraws. The strollers beside the notch are always on screen, so they tick slowly.
     var tick: Double = 0.125
+    /// Every so often it stops, turns to face us and waves.
+    var waves = false
     var onHover: (Bool) -> Void = { _ in }
 
     @State private var hovering = false
@@ -143,15 +149,16 @@ struct Stroller: View {
                 TimelineView(.periodic(from: .now, by: tick)) { timeline in
                     let now = timeline.date
                     let paused = pausedTotal + (pauseStart.map { now.timeIntervalSince($0) } ?? 0)
-                    let walked = now.timeIntervalSinceReferenceDate - paused
+                    let wave = waves ? Wave.at(now.timeIntervalSinceReferenceDate, phase: phase) : (frame: nil, waved: 0)
+                    let walked = now.timeIntervalSinceReferenceDate - paused - wave.waved
                     let spot = position(at: walked)
                     let performing = tricks && hovering
                     let beat = Int(now.timeIntervalSinceReferenceDate / 0.28)
                     // A little hop on every other beat while performing.
                     let hop: CGFloat = performing && beat % 2 == 0 ? -size * 0.12 : 0
-                    PixelBot(mode: performing ? .trick : .walk, persona: persona, size: size,
-                             flipped: spot.returning && !performing,
-                             fixedFrame: performing ? beat : Int(walked / max(tick, 0.25)))
+                    PixelBot(mode: performing ? .trick : (wave.frame == nil ? .walk : .wave), persona: persona, size: size,
+                             flipped: spot.returning && !performing && wave.frame == nil,
+                             fixedFrame: performing ? beat : (wave.frame ?? Int(walked / max(tick, 0.25))))
                         .onHover { inside in
                             guard tricks else { return }
                             hovering = inside
@@ -215,5 +222,24 @@ extension EnvironmentValues {
     var ravenHeadphones: Bool {
         get { self[RavenHeadphonesKey.self] }
         set { self[RavenHeadphonesKey.self] = newValue }
+    }
+}
+
+/// When a raven in the idle notch stops to wave: once every `every` seconds, for one pass of `clip`.
+enum Wave {
+    static let every: TimeInterval = 45
+    static let beat: TimeInterval = 0.5
+    /// Indexes into `PixelSprites.waveFrames`: face us, wave three times, settle.
+    static let clip = [0, 1, 2, 1, 2, 1, 2, 0]
+    static var length: TimeInterval { Double(clip.count) * beat }
+
+    /// The frame to draw if a wave is under way at `time`, and the seconds spent waving before then.
+    /// `phase` (0–1) staggers ravens so they don't all wave at once.
+    static func at(_ time: TimeInterval, phase: Double) -> (frame: Int?, waved: TimeInterval) {
+        let shifted = time - phase * every
+        let laps = (shifted / every).rounded(.down)
+        let into = shifted - laps * every
+        let frame = into < length ? clip[min(clip.count - 1, Int(into / beat))] : nil
+        return (frame, laps * length + min(into, length))
     }
 }

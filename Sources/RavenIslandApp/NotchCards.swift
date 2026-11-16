@@ -26,10 +26,12 @@ struct PillButton: View {
             .background(Capsule().fill(prominent ? tint.opacity(hovered ? 1 : 0.9) : tint.opacity(hovered ? 0.26 : 0.16)))
             .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressStyle())
         .disabled(disabled)
         .opacity(disabled ? 0.4 : 1)
         .onHover { hovered = $0 }
+        .animation(Motion.hover, value: hovered)
+        .animation(Motion.fade, value: disabled)
     }
 }
 
@@ -89,14 +91,18 @@ struct ReviewScroll<Content: View>: View {
                     if bottom <= outer.size.height + 6 { reachedEnd = true }
                 }
                 .overlay(alignment: .bottom) {
-                    if !reachedEnd {
-                        Text("↓  More below — scroll to the end to allow")
-                            .font(.system(size: 10.5, weight: .semibold)).foregroundStyle(.black)
-                            .padding(.horizontal, 9).padding(.vertical, 3)
-                            .background(Capsule().fill(Color.yellow))
-                            .padding(.bottom, 5)
-                            .allowsHitTesting(false)
+                    ZStack {
+                        if !reachedEnd {
+                            Text("↓  More below — scroll to the end to allow")
+                                .font(.system(size: 10.5, weight: .semibold)).foregroundStyle(.black)
+                                .padding(.horizontal, 9).padding(.vertical, 3)
+                                .background(Capsule().fill(Color.yellow))
+                                .padding(.bottom, 5)
+                                .allowsHitTesting(false)
+                                .transition(.opacity)
+                        }
                     }
+                    .animation(Motion.fade, value: reachedEnd)
                 }
             }
         } else {
@@ -269,6 +275,7 @@ struct RequestCard: View {
                 }
             }
         }
+        .animation(Motion.fade, value: writingNote)
     }
 
     private func mono(_ s: String, color: Color = .white.opacity(0.92)) -> some View {
@@ -453,5 +460,6 @@ struct RequestCard: View {
                 }
             }
         }
+        .animation(Motion.fade, value: writingNote)
     }
 }

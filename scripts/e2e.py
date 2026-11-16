@@ -138,7 +138,7 @@ try:
     check("no prompts or paths in sessions/pending", "secret" not in listing and "sP" in listing, listing[:200])
 
     print("hostile or broken input")
-    held = [raw(envelope("StatusLine", {"session_id": "x"}, True), hold=True) for _ in range(300)]
+    held = [raw(envelope("NotAHookEvent", {"session_id": "x"}, True), hold=True) for _ in range(300)]
     time.sleep(0.5)
     r = hook({"session_id": "s1", "hook_event_name": "Stop", "cwd": "/tmp/demo"})
     check("300 unanswerable connections don't stop the listener", bridge("pending").returncode == 0)
@@ -172,13 +172,6 @@ try:
     check("request falls back within 5 seconds of the app freezing", p.returncode == 0 and took < 5.0, f"{took:.1f}s")
     check("its card is gone once the app wakes", wait_for(lambda: pending() == [], 4))
 
-    print("forged usage report with an absurd reset time")
-    raw(envelope("StatusLine", {"rate_limits": {"five_hour": {"used_percentage": 50, "resets_at": 1e30}}}, False))
-    time.sleep(0.3)
-    hook({"session_id": "usage", "hook_event_name": "Notification", "cwd": "/tmp/demo", "notification_type": "agent_needs_input"})
-    time.sleep(1.5)
-    check("app survives with the panel open", app.poll() is None)
-    hook({"session_id": "usage", "hook_event_name": "SessionEnd"})
 
     print("large tool results")
     big = {"session_id": "big", "hook_event_name": "PostToolUse", "cwd": "/tmp/demo", "tool_name": "Grep",
