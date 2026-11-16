@@ -175,11 +175,7 @@ struct IdleHomePanel: View {
 
     @ViewBuilder private func progress(_ track: NowPlaying) -> some View {
         if let duration = track.duration {
-            if animated {
-                TimelineView(.periodic(from: .now, by: 1)) { timeline in progressRow(track.position(at: timeline.date), duration) }
-            } else {
-                progressRow(track.position(at: Date()), duration)
-            }
+            TimelineView(.periodic(from: .now, by: 1)) { timeline in progressRow(track.position(at: timeline.date), duration) }
         }
     }
 

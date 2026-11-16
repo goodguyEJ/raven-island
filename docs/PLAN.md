@@ -17,7 +17,7 @@ the long tail and can be reordered or dropped without affecting the core.
 | 3 | Approvals, questions, plan review | F3, F4, F5 | L |
 | 4 | Jump to terminal | F6 | M |
 | 5 | Sounds, settings window, launch at login | F8, F13 | M |
-| 6 | Usage and quota display | F7 | S–M |
+| 6 | Usage and quota display (built, then removed; see SPEC F7) | F7 | S–M |
 | 7 | Phone alerts | F10 | S |
 | 8 | Remote sessions over SSH | F11 | L |
 | 9 | More agents | F12 | M per agent |
@@ -117,7 +117,9 @@ the right window (and tab, where supported) to the front.
 
 **Check:** each event plays its sound once; settings persist across relaunch.
 
-## Phase 6 — Usage
+## Phase 6 — Usage (removed)
+
+Built, then removed: see SPEC F7.
 
 1. Status line helper that forwards the usage fields to the app and then runs the user's
    previous status line command, so their status line keeps working.

@@ -93,7 +93,7 @@ enum Snapshot {
                 LinearGradient(colors: [Color(red: 0.36, green: 0.47, blue: 0.62), Color(red: 0.78, green: 0.72, blue: 0.66)],
                                startPoint: .top, endPoint: .bottom)
                 Rectangle().fill(.white.opacity(0.28)).frame(height: 37)   // stand-in menu bar
-                NotchContentView(sessions: sessions, expanded: expanded, geometry: g, animated: false,
+                NotchContentView(sessions: sessions, expanded: expanded, geometry: g, animated: false, live: false,
                                  request: req, queued: more > 0 ? [edit, question].compactMap { $0 }.prefix(more).map { $0 } : [],
                                  waitingSessionIDs: req.map { [$0.sessionID] } ?? [])
                     .padding(.top, g.topOffset + (g.hasNotch ? 0 : 7))
@@ -121,7 +121,7 @@ enum Snapshot {
             let view = ZStack(alignment: .top) {
                 LinearGradient(colors: [Color(red: 0.36, green: 0.47, blue: 0.62), Color(red: 0.78, green: 0.72, blue: 0.66)],
                                startPoint: .top, endPoint: .bottom)
-                NotchContentView(sessions: sessions, expanded: true, geometry: notch, animated: false, request: req,
+                NotchContentView(sessions: sessions, expanded: true, geometry: notch, animated: false, live: false, request: req,
                                  waitingSessionIDs: req.map { [$0.sessionID] } ?? [], nowPlaying: track)
             }
             .frame(width: 680, height: notch.expandedSize(sessionCount: sessions.count, cardHeight: req.map(RequestCard.height(for:)) ?? 0,

@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 import RavenIslandCore
 
-/// Facts the setup window needs about this Mac. Read off the main thread.
+/// Facts the setup window needs about this Mac.
 struct SetupFacts {
     var claudeCodeFound: Bool
     var otherApprovalTools: Int

@@ -240,6 +240,8 @@ struct NotchContentView: View {
     var expanded: Bool
     var geometry: NotchGeometry
     var animated = true
+    /// False only for offscreen snapshots, where scroll views and text fields do not render.
+    var live = true
     /// The request currently shown as a card, and how many more are queued behind it.
     var request: PendingRequest? = nil
     /// Decisions waiting behind `request`, in the order they'll be shown.
@@ -513,7 +515,7 @@ struct NotchContentView: View {
 
             if focus, let request {
                 rows(focusSession.map { [$0] } ?? []).frame(height: NotchGeometry.rowHeight)
-                RequestCard(request: request, more: queued.count, live: animated,
+                RequestCard(request: request, more: queued.count, live: live, animated: animated,
                             onDecision: { onDecision(request, $0) }, onReviewed: { onReviewed(request) },
                             onEditing: { onEditing(request, $0) })
                     .id(request.id)   // fresh text fields and selections for each request
@@ -524,7 +526,7 @@ struct NotchContentView: View {
                 }
             } else {
                 if let request {
-                    RequestCard(request: request, more: queued.count, live: animated,
+                    RequestCard(request: request, more: queued.count, live: live, animated: animated,
                                 onDecision: { onDecision(request, $0) }, onReviewed: { onReviewed(request) },
                                 onEditing: { onEditing(request, $0) })
                         .id(request.id)

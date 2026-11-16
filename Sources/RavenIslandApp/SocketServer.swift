@@ -170,7 +170,6 @@ final class SocketServer {
             DispatchQueue.main.async { self.handler(envelope, nil) }
             return
         }
-        UnixSocket.setTimeouts(fd: fd, sendMs: 1000, recvMs: 0)
         let connection = BlockingConnection(fd: fd, queue: connectionQueue)
         DispatchQueue.main.async { self.handler(envelope, connection) }
     }
