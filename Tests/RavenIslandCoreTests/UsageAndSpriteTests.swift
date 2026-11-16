@@ -229,4 +229,26 @@ import Testing
             #expect(paused[0] != PixelSprites.walkFrames(persona: p)[0])
         }
     }
+
+    @Test func everyFrameCanWearHeadphones() {
+        for p in PixelSprites.personas {
+            for state in SessionState.allCases {
+                let kinds: [WorkKind] = state == .working ? WorkKind.allCases : [.building]
+                for kind in kinds {
+                    let plain = PixelSprites.frames(for: state, persona: p, work: kind)
+                    let wearing = PixelSprites.frames(for: state, persona: p, work: kind, headphones: true)
+                    wellFormed(wearing, "\(p.id) \(state)/\(kind) with headphones")
+                    #expect(wearing.count == plain.count)
+                    #expect(wearing.allSatisfy { $0.joined().contains("P") }, "\(p.id) \(state)/\(kind) lost its headphones")
+                    #expect(Set(wearing.map(body)).count >= 2)
+                }
+            }
+            let walk = PixelSprites.walkFrames(persona: p, headphones: true)
+            wellFormed(walk, "\(p.id) walking with headphones")
+            #expect(walk.allSatisfy { $0.joined().contains("P") })
+            let trick = PixelSprites.trickFrames(persona: p, headphones: true)
+            #expect(trick.allSatisfy { $0.joined().contains("P") })
+            #expect(PixelSprites.frames(for: .working, persona: p) == PixelSprites.frames(for: .working, persona: p, headphones: false))
+        }
+    }
 }

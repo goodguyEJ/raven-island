@@ -17,7 +17,7 @@
 ### Changed
 - The menu bar icon is a small island with palms instead of the raven.
 - The ravens are livelier: they breathe, blink, and move with what they are doing instead of
-  standing still beside their props.
+  standing still beside their props. While music plays, every raven wears headphones.
 - The panel's Settings button closes the panel so Settings opens in front of it.
 
 ### Raven Island

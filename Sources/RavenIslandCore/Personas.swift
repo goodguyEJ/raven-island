@@ -153,9 +153,9 @@ extension PixelSprites {
 
     /// Two passes over a prop cycle, the second with the breath in, so every frame stays distinct.
     /// `pose` shapes the body for each prop frame; `blinkAt` closes the eyes on one frame of the first pass.
-    static func alive(_ p: Persona, _ props: [[(Int, Int, Character)]], blinkAt: Int? = nil,
+    static func alive(_ p: Persona, _ props: [[(Int, Int, Character)]], blinkAt: Int? = nil, wearing: Bool = false,
                       pose: (Int, [[Character]]) -> [[Character]] = { $1 }) -> [[String]] {
-        let stand = standing(p)
+        let stand = wearing ? headphones(standing(p)) : standing(p)
         let first = props.indices.map { i -> [String] in
             let body = pose(i, stand)
             return strings(overlaying(i == blinkAt ? blinking(body, p) : body, props[i]))
@@ -247,31 +247,33 @@ extension PixelSprites {
 
     /// Animation frames for a session state, drawn for a given raven.
     /// While working, `work` picks the animation: thinking, searching, running a command, or building.
-    public static func frames(for state: SessionState, persona p: Persona, work: WorkKind = .building) -> [[String]] {
+    /// `headphones`: music is playing, so the raven wears them over whatever it is doing.
+    public static func frames(for state: SessionState, persona p: Persona, work: WorkKind = .building,
+                              headphones: Bool = false) -> [[String]] {
         switch state {
         case .working:
             switch work {
-            case .building: return alive(p, buildingProps, blinkAt: 1) { i, b in i % 2 == 0 ? armsUp(b) : b }
-            case .thinking: return alive(p, thinkingProps, blinkAt: 1) { i, b in wingToChin(i < 2 ? b : headBack(b)) }
-            case .searching: return alive(p, searchingProps, blinkAt: 0) { i, b in i == 1 ? headForward(b) : b }
-            case .running: return alive(p, runningProps, blinkAt: 0) { i, b in i == 1 ? footUp(b) : b }
+            case .building: return alive(p, buildingProps, blinkAt: 1, wearing: headphones) { i, b in i % 2 == 0 ? armsUp(b) : b }
+            case .thinking: return alive(p, thinkingProps, blinkAt: 1, wearing: headphones) { i, b in wingToChin(i < 2 ? b : headBack(b)) }
+            case .searching: return alive(p, searchingProps, blinkAt: 0, wearing: headphones) { i, b in i == 1 ? headForward(b) : b }
+            case .running: return alive(p, runningProps, blinkAt: 0, wearing: headphones) { i, b in i == 1 ? footUp(b) : b }
             }
         case .needsApproval:
-            return alive(p, approvalProps, blinkAt: 0)
+            return alive(p, approvalProps, blinkAt: 0, wearing: headphones)
         case .waitingForInput:
-            return alive(p, waitingProps, blinkAt: 1) { i, b in i == 0 ? headBack(b) : b }
+            return alive(p, waitingProps, blinkAt: 1, wearing: headphones) { i, b in i == 0 ? headBack(b) : b }
         case .done:
-            return alive(p, doneProps, blinkAt: 1) { i, b in i == 0 ? hopping(armsUp(b)) : b }
+            return alive(p, doneProps, blinkAt: 1, wearing: headphones) { i, b in i == 0 ? hopping(armsUp(b)) : b }
         case .error:
-            return alive(p, errorProps, blinkAt: 0) { i, b in i == 1 ? (p.eyeRows.isEmpty ? armsUp(b) : blinking(b, p)) : b }
+            return alive(p, errorProps, blinkAt: 0, wearing: headphones) { i, b in i == 1 ? (p.eyeRows.isEmpty ? armsUp(b) : blinking(b, p)) : b }
         case .idle:
-            return walkFrames(persona: p)
+            return walkFrames(persona: p, headphones: headphones)
         }
     }
 
     /// Walk cycle with a bounce, a head bob, and one blink. The view moves and mirrors the raven.
-    public static func walkFrames(persona p: Persona) -> [[String]] {
-        let (stand, step) = (standing(p), stepping(p))
+    public static func walkFrames(persona p: Persona, headphones wearing: Bool = false) -> [[String]] {
+        let (stand, step) = wearing ? (headphones(standing(p)), headphones(stepping(p))) : (standing(p), stepping(p))
         return [stand, step, breathing(stand), breathing(step), headForward(stand), headForward(step),
                 p.eyeRows.isEmpty ? footUp(stand) : blinking(stand, p), breathing(headForward(step))].map(strings)
     }
@@ -297,9 +299,10 @@ extension PixelSprites {
     }
 
     /// The raven's party trick, shown when the pointer is on it.
-    public static func trickFrames(persona p: Persona) -> [[String]] {
-        p.trick.map { frame in
-            strings(overlaying(frame.armsUp ? armsUp(standing(p)) : standing(p), frame.pixels))
+    public static func trickFrames(persona p: Persona, headphones wearing: Bool = false) -> [[String]] {
+        let stand = wearing ? headphones(standing(p)) : standing(p)
+        return p.trick.map { frame in
+            strings(overlaying(frame.armsUp ? armsUp(stand) : stand, frame.pixels))
         }
     }
 }
