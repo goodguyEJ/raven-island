@@ -4,17 +4,17 @@ import Foundation
 public enum ArtworkTint {
     static let minBrightness = 0.75
     static let minSaturation = 0.45
-    /// Below these the average has no real hue (or is too dark to tell), so it stays grey rather than
-    /// turning a random colour.
+    /// Below these the average has no real hue (or is too dark to tell), so there is no tint rather than
+    /// a random colour.
     static let greyThreshold = 0.12
     static let darkThreshold = 0.15
 
-    public static func readable(red: Double, green: Double, blue: Double) -> (red: Double, green: Double, blue: Double) {
+    public static func readable(red: Double, green: Double, blue: Double) -> (red: Double, green: Double, blue: Double)? {
         let maxC = max(red, green, blue), minC = min(red, green, blue)
         let delta = maxC - minC
         var saturation = maxC > 0 ? delta / maxC : 0
         let brightness = max(maxC, minBrightness)
-        guard saturation >= greyThreshold, maxC >= darkThreshold else { return (brightness, brightness, brightness) }
+        guard saturation >= greyThreshold, maxC >= darkThreshold else { return nil }
         saturation = max(saturation, minSaturation)
 
         var hue: Double

@@ -195,7 +195,7 @@ final class MusicSource: ObservableObject {
             guard let c = rep.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
             sum.r += Double(c.redComponent); sum.g += Double(c.greenComponent); sum.b += Double(c.blueComponent)
         } }
-        let c = ArtworkTint.readable(red: sum.r / 16, green: sum.g / 16, blue: sum.b / 16)
+        guard let c = ArtworkTint.readable(red: sum.r / 16, green: sum.g / 16, blue: sum.b / 16) else { return nil }
         return Color(red: c.red, green: c.green, blue: c.blue)
     }
 

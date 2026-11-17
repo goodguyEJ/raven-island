@@ -98,8 +98,8 @@ struct IdleHomePanel: View {
     var onCalendarPrompt: () -> Void = {}
 
     private var track: NowPlaying? { idleHome.hasTrack ? nowPlaying : nil }
-    /// Without artwork to take a colour from, the record's player colour carries through instead.
-    private var accent: Color? { tint ?? (artwork == nil ? track.map { SpinningRecord.color(for: $0.app) } : nil) }
+    /// Without artwork, or with artwork that has no real colour, the player's colour carries through.
+    private var accent: Color { tint ?? track.map { SpinningRecord.color(for: $0.app) } ?? .white }
     /// Without the calendar the music half would sit beside an empty space.
     private var prompt: CalendarPrompt? { track != nil && !idleHome.showsAgendaHalf ? calendarPrompt : nil }
 
@@ -145,7 +145,7 @@ struct IdleHomePanel: View {
                         .font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
                     if !track.artist.isEmpty {
                         Text(TextSafety.visible(track.artist))
-                            .font(.system(size: 11.5)).foregroundStyle(accent ?? .white.opacity(0.58))
+                            .font(.system(size: 11.5)).foregroundStyle(accent)
                     }
                 }
                 .contentTransition(.opacity)
@@ -189,11 +189,11 @@ struct IdleHomePanel: View {
         return HStack(spacing: 7) {
             Text(Self.clock(position))
                 .font(.system(size: 10.5, weight: .semibold).monospacedDigit())
-                .foregroundStyle(accent ?? .white.opacity(0.9))
+                .foregroundStyle(accent)
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule().fill(.white.opacity(0.15))
-                    Capsule().fill(accent ?? .white.opacity(0.75)).frame(width: proxy.size.width * fraction)
+                    Capsule().fill(accent).frame(width: proxy.size.width * fraction)
                 }
             }
             .frame(height: 3)
@@ -358,7 +358,7 @@ struct HeaderMiniPlayer: View {
     var nowPlaying: NowPlaying
     var allowed: Bool
     var animated: Bool
-    /// The artwork's colour; green until there is one.
+    /// The artwork's colour; the player's colour until there is one.
     var tint: Color?
     var onPlayPause: () -> Void
     var onOpenPlayer: () -> Void
@@ -367,7 +367,7 @@ struct HeaderMiniPlayer: View {
     var body: some View {
         HStack(spacing: 4) {
             Button(action: onOpenPlayer) {
-                Marquee(text: TextSafety.visible(nowPlaying.title), color: tint ?? .green, animated: animated)
+                Marquee(text: TextSafety.visible(nowPlaying.title), color: tint ?? SpinningRecord.color(for: nowPlaying.app), animated: animated)
                     .padding(.horizontal, 4).padding(.vertical, 3)
                     .background(Capsule().fill(.white.opacity(hovered ? 0.16 : 0)))
                     .contentShape(Capsule())

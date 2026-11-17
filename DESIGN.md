@@ -66,7 +66,7 @@ personality; everything around them stays quiet and dense, like a system HUD.
 - Diff: removed `rgb(255,133,128)`, added `rgb(128,230,143)`
 - "More below" marker and warnings: system yellow, black text
 - Today and calendar call to action: `rgb(10,133,255)`
-- Music accent: the artwork's own tint; without artwork, the player's colour
+- Music accent: the artwork's own tint; without artwork, or when the artwork is grey or near black, the player's colour
   (Spotify `#1DB954`, Music `#FA2D48`). Calendar bars use each calendar's own colour.
 
 Colour is never the only signal: every state also has a glyph, a label and a raven pose.
