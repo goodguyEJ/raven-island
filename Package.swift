@@ -7,7 +7,8 @@ let package = Package(
     targets: [
         .target(name: "RavenIslandCore"),
         .executableTarget(name: "ravenisland-bridge", dependencies: ["RavenIslandCore"]),
-        .executableTarget(name: "RavenIslandApp", dependencies: ["RavenIslandCore"]),
+        .systemLibrary(name: "IOHIDPrivate"),
+        .executableTarget(name: "RavenIslandApp", dependencies: ["RavenIslandCore", "IOHIDPrivate"]),
         .testTarget(name: "RavenIslandCoreTests", dependencies: ["RavenIslandCore"]),
     ],
     swiftLanguageModes: [.v5]

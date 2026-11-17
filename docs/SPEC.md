@@ -347,6 +347,25 @@ Design: [superpowers/specs/2026-11-15-idle-home-design.md](superpowers/specs/202
 - Track and event titles are capped at 200 characters, shown through the same visible-marker
   filter as everything else, and never written to disk, the log, or the diagnostic report.
 
+### F16. Temperatures
+- Off by default (Settings → General). Exactly three readings in °C and no other metrics:
+  CPU (the hottest SoC die sensor), SSD and Battery, each the hottest reading of its kind.
+- One line in the lower right corner of the open panel, in every state:
+  `CPU 50° SSD 34° Battery 29.8°`: CPU and SSD in whole degrees, battery to one decimal. The panel is 16 pt taller while the line shows.
+  The collapsed notch shows nothing.
+- Each number is coloured by range, judged on the number as shown: green (safe), yellow
+  (warning), red (hot). CPU: warning from 70°, hot from 90°. SSD: 50° and 65°. Battery: 35°
+  and 45°.
+- Read through the private `IOHIDEventSystemClient` API (usage page `0xff00`, usage 5, event
+  type 15), declared in the header-only `IOHIDPrivate` module. One client for the app's
+  lifetime. Values ≤ 0 or ≥ 150 are discarded. Sensor names, labels and ranges are in one
+  table in `Temperatures.swift`: names containing `tdie` (CPU), names starting with `NAND`
+  (SSD) and `gas gauge battery`.
+- Sampled every 3 s on a background queue, published on the main thread, and only while the
+  setting is on and the panel is open. Nothing is logged or stored.
+- A sensor that is missing is left out; with no sensors, or if the API stops working, the
+  line is hidden without an error. Apple Silicon only.
+
 ## 7. Failure behaviour
 
 | Situation | Result |

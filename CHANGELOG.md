@@ -12,6 +12,9 @@
   from the album art mark the track (a spinning record when there is no art), a week strip shows
   six days with each day's events a click away, and a small player stays in the header while
   sessions run.
+- **Temperatures.** An optional setting (off by default) adds a line in the lower right corner
+  of the open panel with the CPU, SSD and battery temperatures, each green, yellow or red by
+  range. Read from the Mac's own sensors every 3 seconds, only while the panel is open.
 - Settings offers "Allow Calendar Access" when a rebuild has cleared the Calendar grant.
 - When the calendar is off or not allowed, the open panel shows a small card with the one step
   that turns it on, instead of an empty space beside the music.
