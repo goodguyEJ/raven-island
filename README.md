@@ -82,6 +82,14 @@ in Ghostty and Terminal.app, the workspace window in VS Code and its forks, the 
 **Header.** The top left of the open panel shows what's playing while sessions run, otherwise
 today's date and your next event. Battery, Sound and Settings sit at the top right.
 
+**Temperatures.** Off by default; switch on "Show CPU, SSD and battery temperatures in the
+panel" in Settings → General. A line in the lower right corner of the open panel then reads
+`CPU 50° SSD 34° Battery 29.8°`, in °C: the hottest chip sensor, the SSD and the battery. Each
+number is green while safe, yellow as a warning and red when hot (CPU from 70° and 90°, SSD
+from 50° and 65°, battery from 35° and 45°). Sensors are read every 3 seconds only while the
+panel is open, on Apple Silicon; a sensor this Mac does not report is left out, and with none
+the line stays hidden.
+
 **And the rest.** Optional sounds for each event (original synthesized tones, or your own pack),
 quiet hours, auto-clearing of finished sessions, launch at login, a floating pill on
 displays without a notch, and an uninstall that puts everything back.
@@ -148,6 +156,9 @@ Code, and launches it. A local build is never blocked by Gatekeeper.
 - Uninstall resets the Calendar and Automation permissions macOS keeps for the app.
 - No network connections, with one exception you switch on yourself: loading Spotify album
   art. No accounts, no analytics.
+- Temperatures need no permission, helper or password. They are read through an undocumented
+  macOS interface; if a macOS update changes it, the readings disappear and nothing else is
+  affected.
 
 ## Uninstall
 

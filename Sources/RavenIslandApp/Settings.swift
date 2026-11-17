@@ -32,6 +32,8 @@ final class Settings: ObservableObject {
     /// Off by default: turning it on is what asks for Calendar access.
     @Published var showCalendar: Bool { didSet { defaults.set(showCalendar, forKey: "showCalendar") } }
 
+    @Published var showTemperatures: Bool { didSet { defaults.set(showTemperatures, forKey: "showTemperatures") } }
+
     @Published var soundsEnabled: Bool { didSet { defaults.set(soundsEnabled, forKey: "soundsEnabled") } }
     @Published var volume: Double { didSet { defaults.set(volume, forKey: "volume") } }
     @Published var mutedEvents: Set<String> { didSet { defaults.set(Array(mutedEvents), forKey: "mutedEvents") } }
@@ -67,7 +69,9 @@ final class Settings: ObservableObject {
             "soundsEnabled": false, "volume": 0.5, "soundPack": Self.builtInPack,
             "quietHoursEnabled": false, "quietStart": 22, "quietEnd": 7,
             "showMusic": true, "spotifyArtwork": false, "showCalendar": false,
+            "showTemperatures": false,
         ])
+        showTemperatures = defaults.bool(forKey: "showTemperatures")
         showMusic = defaults.bool(forKey: "showMusic")
         spotifyArtwork = defaults.bool(forKey: "spotifyArtwork")
         showCalendar = defaults.bool(forKey: "showCalendar")

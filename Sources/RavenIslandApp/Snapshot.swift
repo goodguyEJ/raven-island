@@ -25,6 +25,12 @@ enum Snapshot {
         ]
     }
 
+    static func temperatures(cpu: Double, ssd: Double, battery: Double) -> [ShownTemperature] {
+        Temperatures(readings: [SensorReading(name: "PMU tdie1", celsius: cpu), SensorReading(name: "NAND CH0 temp", celsius: ssd),
+                                SensorReading(name: "gas gauge battery", celsius: battery)]).shown
+    }
+    static let sampleTemperatures = temperatures(cpu: 50, ssd: 34, battery: 29.8)
+
     static func write(to dir: String) {
         let out = URL(fileURLWithPath: dir, isDirectory: true)
         try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
@@ -116,15 +122,20 @@ enum Snapshot {
             ("19-header-mini-player", [all[2], all[3]], nil),
             ("19b-header-mini-player-compact", [all[2], all[5], all[3]], nil),
             ("19c-header-mini-player-hidden-for-decision", all, bash),
+            ("23d-temperatures-sessions", [all[2], all[3]], nil),
         ]
         for (name, sessions, req) in headerCases {
+            var g = notch
+            g.temperatureFooter = name.hasPrefix("23")
             let view = ZStack(alignment: .top) {
                 LinearGradient(colors: [Color(red: 0.36, green: 0.47, blue: 0.62), Color(red: 0.78, green: 0.72, blue: 0.66)],
                                startPoint: .top, endPoint: .bottom)
-                NotchContentView(sessions: sessions, expanded: true, geometry: notch, animated: false, live: false, request: req,
-                                 waitingSessionIDs: req.map { [$0.sessionID] } ?? [], nowPlaying: track)
+                NotchContentView(sessions: sessions, expanded: true, geometry: g, animated: false, live: false, request: req,
+                                 waitingSessionIDs: req.map { [$0.sessionID] } ?? [], nowPlaying: track,
+                                 temperatures: name.hasPrefix("23e") ? temperatures(cpu: 93, ssd: 52, battery: 36)
+                                     : name.hasPrefix("23") ? sampleTemperatures : [])
             }
-            .frame(width: 680, height: notch.expandedSize(sessionCount: sessions.count, cardHeight: req.map(RequestCard.height(for:)) ?? 0,
+            .frame(width: 680, height: g.expandedSize(sessionCount: sessions.count, cardHeight: req.map(RequestCard.height(for:)) ?? 0,
                                                           focus: req != nil).height + 70)
             let renderer = ImageRenderer(content: view)
             renderer.scale = 2
@@ -184,10 +195,14 @@ enum Snapshot {
             ("22-calendar-placeholder-off", notch, idle(playing, [], label: nil, agendaOn: false), true, true),
             ("22b-calendar-placeholder-allow", notch, idle(playing, [], label: nil, agendaOn: false), true, true),
             ("22c-calendar-placeholder-denied", notch, idle(playing, [], label: nil, agendaOn: false), true, true),
+            ("23-temperatures-ravens", notch, .none, true, true),
+            ("23b-temperatures-music-calendar", notch, idle(playing, events, label: label, agendaOn: true), true, true),
+            ("23e-temperatures-warning-and-hot", notch, .none, true, true),
         ]
         for (name, base, home, expanded, allowed) in cases {
             var g = base
             g.idleHome = home
+            g.temperatureFooter = name.hasPrefix("23")
             var track = home.hasTrack ? (home.isPlaying ? playing : paused) : nil
             if name.hasPrefix("20c") { track?.app = .appleMusic }
             let art = name.hasPrefix("12") || name.hasPrefix("20b") || name.hasPrefix("20c") ? nil : artwork
@@ -201,7 +216,9 @@ enum Snapshot {
                                  nowPlaying: track, artwork: art, tint: art.flatMap(MusicSource.tint(of:)), controlsAllowed: allowed,
                                  agenda: home.agendaOn ? agenda : [],
                                  calendarPrompt: name.hasPrefix("22b") ? .allow : name.hasPrefix("22c") ? .openSettings
-                                     : name.hasPrefix("22") ? .turnOn : nil)
+                                     : name.hasPrefix("22") ? .turnOn : nil,
+                                 temperatures: name.hasPrefix("23e") ? temperatures(cpu: 93, ssd: 52, battery: 36)
+                                     : name.hasPrefix("23") ? sampleTemperatures : [])
                     .padding(.top, g.topOffset + (g.hasNotch ? 0 : 7))
             }
             .frame(width: 680, height: expanded ? g.expandedSize(sessionCount: 0).height + g.topOffset + 70 : 90)

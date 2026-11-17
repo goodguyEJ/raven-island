@@ -15,6 +15,8 @@ struct NotchGeometry: Equatable {
     var crewStage = false
     /// With no sessions, what is playing and what is next on the calendar.
     var idleHome = IdleHome.none
+    /// The open panel has a line of temperatures under its content.
+    var temperatureFooter = false
 
     static let wing: CGFloat = 46
     static let expandedWidth: CGFloat = 600
@@ -24,6 +26,7 @@ struct NotchGeometry: Equatable {
     static let pagerHeight: CGFloat = 28
     static let pillHeight: CGFloat = 26
     static let idleHomeHeight: CGFloat = 96
+    static let temperatureFooterHeight: CGFloat = 16
 
     static func forScreen(_ screen: NSScreen) -> NotchGeometry {
         let top = screen.safeAreaInsets.top
@@ -84,7 +87,8 @@ struct NotchGeometry: Equatable {
             list = CGFloat(rows) * Self.rowHeight + (footer ? Self.pagerHeight : 0)
         }
         let upNext = cardHeight > 0 && queued > 0 ? Self.pagerHeight : 0
-        return CGSize(width: width, height: headerHeight + cardHeight + upNext + list + 10)
+        let footer = temperatureFooter ? Self.temperatureFooterHeight : 0
+        return CGSize(width: width, height: headerHeight + cardHeight + upNext + list + footer + 10)
     }
 
     func frame(for size: CGSize) -> CGRect {

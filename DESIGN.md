@@ -19,7 +19,7 @@ personality; everything around them stays quiet and dense, like a system HUD.
 
 **Key characteristics**
 - Pure black `#000000` surface, always dark, whatever the system appearance
-- White at stepped opacities for all text and chrome; colour only means state
+- White at stepped opacities for all text and chrome; colour only means state or a range (battery level, temperature)
 - Pixel-art ravens (personas) drawn on a `Canvas`, moving in whole sprite pixels
 - Continuous-corner shapes throughout (`style: .continuous`)
 - Capsule buttons, never bordered or bezelled controls, inside the panel
@@ -60,6 +60,8 @@ personality; everything around them stays quiet and dense, like a system HUD.
 | Done | system green | `checkmark.circle.fill` |
 | Error | system red | `xmark.octagon.fill` |
 | Idle | system gray | small dot |
+
+Temperatures use the same three system colours for their ranges: green safe, yellow warning, red hot.
 
 ### Semantic and accent
 - Allow / confirm: green. Deny / destructive: red (`PillButton` tint)
@@ -105,6 +107,12 @@ No italics, no custom fonts. Emphasis comes from weight and opacity.
   music plays, otherwise today's date and the next event; right, "Clear N done", battery, sound
   and settings. Then content. Battery: a menu-bar-style battery filled to the level,
   then the percent (left out while "Clear N done" shows, so the row stays clear of the notch); green with a bolt while plugged in, red at 20% or below; hidden on Macs without one.
+- **Temperatures** (optional, off by default). One line in the lower right corner of the open
+  panel, in a 16pt footer the panel grows by: `CPU 50° SSD 34° Battery 29.8°`. 10.5pt, monospaced
+  digits: label white 55%, number semibold in its range colour (green safe, yellow warning,
+  red hot). The number itself carries the reading, and VoiceOver adds "warm" or "hot", so
+  colour is not the only signal. Values change in place without a transition: animating a
+  number every 3 seconds made the app's memory grow.
 - **Session row.** 50pt tall in a 54pt slot, 12pt corners, raven 34pt, title + subtitle, state and
   elapsed time right, a clear button for rows without a waiting decision. Up to 5 rows, then a pager.
 - **Request card.** 14pt corners, white 9%. Permission (226pt), plan (350pt) or question (up to
@@ -240,7 +248,7 @@ Hover fades stay; they are opacity only.
 
 ### Do
 - Keep the panel pure black and flat
-- Use white opacity steps for hierarchy and colour only for state
+- Use white opacity steps for hierarchy and colour only for state or a range
 - Take every duration and curve from the shared motion presets
 - Give every animation a Reduce Motion path, and check it
 - Keep hit targets ≥ 22pt tall with their full frame clickable (`contentShape`)

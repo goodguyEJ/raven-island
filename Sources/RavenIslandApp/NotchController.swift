@@ -40,6 +40,7 @@ final class NotchController {
     private let settings: Settings
     private let music: MusicSource
     private let calendar: CalendarSource
+    private let temperature = TemperatureSource()
     private let state: NotchState
     private let panel: NotchPanel
     private var subscriptions = Set<AnyCancellable>()
@@ -99,6 +100,7 @@ final class NotchController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
 
         let root = NotchRootView(model: model, state: state, settings: settings, music: music, calendar: calendar,
+                                 temperature: temperature,
                                  onSelect: { [weak self] s in
             self?.onSelect(s)
         }, onOpenSettings: { [weak self] in self?.openSettingsFromPanel() }, onOpenCalendar: {
@@ -137,6 +139,12 @@ final class NotchController {
         music.objectWillChange.merge(with: calendar.objectWillChange, settings.objectWillChange)
             .receive(on: RunLoop.main).sink { [weak self] _ in self?.idleHomeChanged() }
             .store(in: &subscriptions)
+        state.$expanded.combineLatest(settings.$showTemperatures).map { $0 && $1 }.removeDuplicates()
+            .sink { [temperature] in temperature.isActive = $0 }
+            .store(in: &subscriptions)
+        temperature.objectWillChange.merge(with: settings.objectWillChange)
+            .receive(on: RunLoop.main).sink { [weak self] _ in self?.temperatureFooterChanged() }
+            .store(in: &subscriptions)
         NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
             .receive(on: RunLoop.main).sink { [weak self] _ in self?.screensChanged() }
             .store(in: &subscriptions)
@@ -151,8 +159,16 @@ final class NotchController {
         geometry.crewStage = settings.showCharacters
         geometry.idleStroll = settings.showCharacters && settings.strollWhenIdle
         geometry.idleHome = idleHome()
+        geometry.temperatureFooter = state.geometry.temperatureFooter
         state.geometry = geometry
         applyFrame()
+    }
+
+    private func temperatureFooterChanged() {
+        let footer = settings.showTemperatures && !temperature.temperatures.shown.isEmpty
+        guard footer != state.geometry.temperatureFooter else { return }
+        state.geometry.temperatureFooter = footer
+        resizeWindow()
     }
 
     private func idleHome() -> IdleHome {

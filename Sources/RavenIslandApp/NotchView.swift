@@ -271,6 +271,7 @@ struct NotchContentView: View {
     var onOpenCalendar: () -> Void = {}
     var calendarPrompt: CalendarPrompt? = nil
     var onCalendarPrompt: () -> Void = {}
+    var temperatures: [ShownTemperature] = []
 
     private var focus: Bool { request != nil && !showAll }
     private var focusSession: Session? { request.flatMap { r in sessions.first { $0.id == r.sessionID } } }
@@ -558,6 +559,12 @@ struct NotchContentView: View {
                 }
             }
             Spacer(minLength: 0)
+            if geometry.temperatureFooter {
+                TemperatureFooter(temperatures: temperatures)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.trailing, 22)
+                    .frame(height: NotchGeometry.temperatureFooterHeight, alignment: .top)
+            }
         }
     }
 }
@@ -577,6 +584,7 @@ struct NotchRootView: View {
     @ObservedObject var settings: Settings
     @ObservedObject var music: MusicSource
     @ObservedObject var calendar: CalendarSource
+    @ObservedObject var temperature: TemperatureSource
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var onSelect: (Session) -> Void
     var onOpenSettings: () -> Void = {}
@@ -605,7 +613,8 @@ struct NotchRootView: View {
                          agenda: calendar.week,
                          onMusic: { music.send($0) }, onOpenPlayer: { music.activatePlayer() },
                          onOpenCalendar: onOpenCalendar,
-                         calendarPrompt: calendarPrompt, onCalendarPrompt: resolveCalendarPrompt)
+                         calendarPrompt: calendarPrompt, onCalendarPrompt: resolveCalendarPrompt,
+                         temperatures: temperature.temperatures.shown)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 

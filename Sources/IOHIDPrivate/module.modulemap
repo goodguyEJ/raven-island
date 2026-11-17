@@ -1,0 +1,5 @@
+module IOHIDPrivate {
+    header "IOHIDPrivate.h"
+    link framework "IOKit"
+    export *
+}
