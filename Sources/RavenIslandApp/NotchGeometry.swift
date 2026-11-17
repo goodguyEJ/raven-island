@@ -61,7 +61,7 @@ struct NotchGeometry: Equatable {
         if hasNotch {
             // The right wing always has the time, so the wings never fold away.
             let body = notchWidth + 2 * Self.wing
-            return CGSize(width: body + 2 * earRadius(expanded: false), height: notchHeight + 1)
+            return CGSize(width: body + 2 * earRadius(expanded: false), height: notchHeight + 0.5)
         }
         return CGSize(width: sessionCount > 0 ? 178 : (idleStroll || idleHome.hasCollapsedContent ? 96 : 44), height: Self.pillHeight)
     }

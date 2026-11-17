@@ -96,7 +96,7 @@ No italics, no custom fonts. Emphasis comes from weight and opacity.
 
 ## 4. Components
 
-- **Collapsed notch wings.** 46pt each side of the notch with about 8pt kept clear at the outer edges, 1pt taller than the notch. Left: the most urgent
+- **Collapsed notch wings.** 46pt each side of the notch with about 8pt kept clear at the outer edges, 0.5pt taller than the notch. Left: the most urgent
   session's raven (or a status glyph). Right: the time (no AM/PM), coloured by time of day: night blue, rose at dawn, gold in the morning, amber in the afternoon, violet at dusk. With "rotate the time, date and battery" on in Settings, every 15s the date (MM/DD) and then the battery percent (red to 20%, yellow to 50%, green above) show for 3s each (crossfade) before the time returns. With nothing
   running the time stays on the right, and on the left a strolling raven, or a listening raven /
   artwork with bars while music plays.
