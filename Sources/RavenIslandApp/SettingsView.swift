@@ -41,7 +41,7 @@ struct SettingsView: View {
                 Toggle("Characters stroll by the notch when nothing is running", isOn: $settings.strollWhenIdle)
                     .disabled(!settings.showCharacters)
                 Toggle("Beside the notch, rotate the time, date and battery", isOn: $settings.rotateNotchDetails)
-                Toggle("Show CPU, SSD and battery temperatures in the panel", isOn: $settings.showTemperatures)
+                Toggle("Show CPU, SSD and battery temperatures in the panel's footer", isOn: $settings.showTemperatures)
                 Text("Off by default. Read from this Mac's own sensors, and only while the panel is open.")
                     .font(.caption).foregroundStyle(.secondary)
                 Toggle("Answer requests from the panel", isOn: $settings.answersFromPanel)

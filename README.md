@@ -83,7 +83,7 @@ in Ghostty and Terminal.app, the workspace window in VS Code and its forks, the 
 today's date and your next event. Battery, Sound and Settings sit at the top right.
 
 **Temperatures.** Off by default; switch on "Show CPU, SSD and battery temperatures in the
-panel" in Settings → General. A line in the lower right corner of the open panel then reads
+panel's footer" in Settings → General. A line in the lower right corner of the open panel then reads
 `CPU 50° SSD 34° Battery 29.8°`, in °C: the hottest chip sensor, the SSD and the battery. Each
 number is green while safe, yellow as a warning and red when hot (CPU from 70° and 90°, SSD
 from 50° and 65°, battery from 35° and 45°). Sensors are read every 3 seconds only while the
